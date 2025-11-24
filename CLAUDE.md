@@ -25,6 +25,26 @@ cargo test
 cargo check
 ```
 
+## Release & Installation Workflow
+
+### Development Cycle
+```bash
+# Test changes during development
+cargo run
+
+# When satisfied with changes, update system-wide binary
+cargo install --path .
+
+# Binary installed to ~/.cargo/bin/money-bae
+# Run from anywhere: money-bae
+```
+
+### Notes
+- `cargo run`: Use during development, no installation needed
+- `cargo install --path .`: Rebuilds and replaces system-wide binary
+- No need to uninstall between updates
+- Uninstall: `cargo uninstall money-bae`
+
 ## Architecture
 
 ### Core Structure
