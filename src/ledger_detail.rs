@@ -3,7 +3,7 @@ use bigdecimal::BigDecimal;
 use chrono::Datelike;
 use cursive::Cursive;
 use cursive::traits::*;
-use cursive::views::{Button, Dialog, HideableView, LinearLayout, Panel, SelectView, TextView};
+use cursive::views::{Button, Dialog, EditView, HideableView, LinearLayout, Panel, SelectView, TextView};
 use cursive_table_view::{TableView, TableViewItem};
 use diesel::prelude::*;
 
@@ -217,10 +217,15 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
         .child(bills_table)
         .child(bill_buttons);
 
+    // Create summary section with update button
+    let summary_content = LinearLayout::vertical()
+        .child(TextView::new(summary_text))
+        .child(Button::new("Update Bank Balance", move |s| update_bank_balance(s, target_ledger_id)));
+
     // Stack income and summary vertically in right column
     let right_column = LinearLayout::vertical()
         .child(Panel::new(income_section).title("Incomes"))
-        .child(Panel::new(TextView::new(summary_text)).title("Summary"));
+        .child(Panel::new(summary_content).title("Summary"));
 
     // Create two-column layout: Bills | (Incomes + Summary)
     let content = LinearLayout::horizontal()
@@ -484,4 +489,51 @@ fn recalculate_ledger_totals(conn: &mut diesel::PgConnection, ledger_id: i32) {
         ))
         .execute(conn)
         .expect("Error updating ledger totals");
+}
+
+fn update_bank_balance(siv: &mut Cursive, ledger_id: i32) {
+    let mut conn = establish_connection();
+
+    // Get current bank balance
+    let ledger = schema::ledgers::table
+        .find(ledger_id)
+        .first::<models::Ledger>(&mut conn)
+        .expect("Error loading ledger");
+
+    let current_balance = ledger.bank_balance.to_string();
+
+    siv.add_layer(
+        Dialog::around(
+            EditView::new()
+                .content(current_balance)
+                .with_name("bank_balance_input")
+                .fixed_width(20)
+        )
+        .title("Update Bank Balance")
+        .button("Update", move |s| {
+            let new_balance = s.call_on_name("bank_balance_input", |v: &mut EditView| {
+                v.get_content()
+            }).unwrap();
+
+            // Parse the new balance
+            match new_balance.to_string().parse::<BigDecimal>() {
+                Ok(balance) => {
+                    let mut conn = establish_connection();
+
+                    // Update bank balance
+                    diesel::update(schema::ledgers::table.find(ledger_id))
+                        .set(schema::ledgers::bank_balance.eq(balance))
+                        .execute(&mut conn)
+                        .expect("Error updating bank balance");
+
+                    s.pop_layer(); // Close dialog
+                    show_ledger_detail(s, ledger_id); // Refresh view
+                }
+                Err(_) => {
+                    s.add_layer(Dialog::info("Invalid amount format"));
+                }
+            }
+        })
+        .button("Cancel", |s| { s.pop_layer(); })
+    );
 }
