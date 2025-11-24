@@ -51,6 +51,34 @@ diesel migration run
 cargo run
 ```
 
+## Installation
+
+### System-wide Installation
+
+Install the binary to `~/.cargo/bin/` for system-wide access:
+
+```bash
+cargo install --path .
+```
+
+Then run from anywhere:
+```bash
+money-bae
+```
+
+### Development Workflow
+
+```bash
+# During development - test changes
+cargo run
+
+# When satisfied - update system-wide version
+cargo install --path .
+
+# Uninstall
+cargo uninstall money-bae
+```
+
 ## Usage
 
 ### Navigation
