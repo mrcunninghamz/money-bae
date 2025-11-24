@@ -1,0 +1,12 @@
+[package]
+name = "money-bae"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.42"
+cursive = { version = "0.20", default-features = false, features = ["termion-backend"] }
+cursive_table_view = "0.14"
+diesel = { version = "2.2", features = ["postgres", "chrono", "numeric"] }
+dotenvy = "0.15"
+bigdecimal = "0.4"

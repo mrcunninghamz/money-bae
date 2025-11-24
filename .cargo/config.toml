@@ -1,0 +1,5 @@
+[env]
+PQ_LIB_DIR = "/opt/homebrew/lib/postgresql@14"
+
+[target.aarch64-apple-darwin]
+rustflags = ["-L", "/opt/homebrew/lib/postgresql@14"]

@@ -1,0 +1,9 @@
+CREATE TABLE ledgers (
+  id SERIAL PRIMARY KEY,
+  date DATE NOT NULL,
+  bank_balance NUMERIC NOT NULL DEFAULT 0,
+  income NUMERIC NOT NULL DEFAULT 0,
+  expenses NUMERIC NOT NULL DEFAULT 0,
+  net NUMERIC GENERATED ALWAYS AS (bank_balance + income - expenses) STORED,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);

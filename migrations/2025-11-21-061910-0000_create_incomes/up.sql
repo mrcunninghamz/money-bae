@@ -1,0 +1,6 @@
+CREATE TABLE incomes (
+  id SERIAL PRIMARY KEY,
+  date DATE NOT NULL,
+  amount NUMERIC(10, 2) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);

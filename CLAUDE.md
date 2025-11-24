@@ -1,0 +1,154 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+money-bae: Terminal UI personal finance tracker built with Rust using the Cursive TUI library. Tracks income and bills through an interactive ncurses-based interface.
+
+## Build & Run Commands
+
+```bash
+# Build the project
+cargo build
+
+# Run the application
+cargo run
+
+# Build release version
+cargo build --release
+
+# Run tests
+cargo test
+
+# Check compilation without building
+cargo check
+```
+
+## Architecture
+
+### Core Structure
+- `src/main.rs`: Application entry point, sets up Cursive instance with custom retro theme, defines global key bindings
+- `src/income_table.rs`: Income tracking module with table view implementation
+
+### Key Components
+
+**Main Application (main.rs)**
+- Initializes Cursive TUI with custom theme (retro palette, terminal default background)
+- Global keybindings:
+  - `q`: Quit application
+  - `c`: Clear current view, return to main menu
+  - `i`: Show income table view
+- Uses layer-based view system for navigation
+
+**Income Table (income_table.rs)**
+- `IncomeTableView`: Wrapper managing income data and table view
+- `Income` struct: Date + amount storage, implements `TableViewItem<BasicColumn>` for table integration
+- Two-column layout: Date (40% width) | Amount (60% width)
+- Table sorting/comparison by date or amount
+- Form-based income entry (WIP: form functionality incomplete)
+
+### Data Flow
+1. User presses keybinding → triggers global callback in main.rs
+2. Callback creates/modifies view → adds as layer to Cursive
+3. IncomeTableView owns data, consumes self when adding to Cursive layer stack
+4. Clear operation pops current layer, re-adds main menu TextView
+
+### Cursive Layer System
+Application uses layer stack for navigation. Layers pushed/popped to show different views. Current layer pattern: pop old view before pushing new one to maintain single active view.
+
+## Development Notes
+
+### Edition
+Uses Rust 2024 edition (Cargo.toml:4). Requires recent Rust toolchain.
+
+### Dependencies
+- `cursive`: TUI framework with ncurses backend
+- `cursive_table_view`: Table view widget extension
+- `chrono`: Date/time handling for income records
+
+### Known Issues
+Income form (income_table.rs:70-86) doesn't actually add income records. Form closes on "Ok" but doesn't capture/process input data.
+
+## Development Workflow
+
+### Communication Style
+- Extremely concise interactions and commit messages. Sacrifice grammar for concision.
+
+### Plans
+- End each plan with unresolved questions list, if any. Extremely concise. Sacrifice grammar for concision.
+
+### Plan Mode Context Management
+
+**Overview**: Claude manages plans/tasks in `.claude/` directory (gitignored, local-only).
+
+**Location**:
+- Plans: `.claude/plans/{branch-name}.yaml`
+- Context notes: `.claude/context/{branch-name}.md`
+
+**Structure**:
+```
+.claude/
+├── plans/{branch-name}.yaml     # Hierarchical: phases → tasks → subtasks
+└── context/{branch-name}.md     # Freeform planning notes/decisions
+```
+
+**Workflow - Plan Mode Start**:
+1. Detect current branch: `git branch --show-current`
+2. Check for plan file: `.claude/plans/{branch}.yaml`
+3. If exists: Load and present summary
+4. If not: Create new plan structure
+5. Present: phases, in-progress tasks, next actions
+
+**YAML Structure**:
+```yaml
+branch: feature-name
+created: ISO8601
+updated: ISO8601
+title: Brief plan description
+phases:
+  - id: p1
+    title: Phase name
+    status: pending|in_progress|completed
+    tasks:
+      - id: p1.1
+        title: Task name
+        status: pending|in_progress|completed
+        notes: Optional details
+        subtasks:
+          - id: p1.1.1
+            title: Subtask name
+            status: pending|in_progress|completed
+```
+
+**Management Rules**:
+- Auto-load plan on plan mode entry
+- Update `updated` timestamp on every change
+- One status per hierarchy level: pending → in_progress → completed
+- Mark parent completed only when all children completed
+- Store context/decisions in `.claude/context/{branch}.md`
+- Never commit `.claude/` (local only)
+
+**Context Switching**:
+- Branch switch detected → auto-load new branch plan
+- Each branch has isolated plan/context
+- No cross-branch pollution
+
+**File Operations**:
+- Read: Single `Read` tool call
+- Write: Single `Write` or `Edit` call
+- No Bash subprocess overhead
+- Direct YAML manipulation
+
+**Status Tracking**:
+- `pending`: Not started
+- `in_progress`: Actively working
+- `completed`: Done, verified
+- Progression: pending → in_progress → completed
+- Parents completed only when all children completed
+- Claude updates automatically during work
+
+**Example**: User switches to branch `feature/auth` → Claude:
+1. Runs `git branch --show-current`
+2. Reads `.claude/plans/feature-auth.yaml`
+3. Presents: "Plan for feature/auth: 3 phases, phase 2 in progress, task p2.3 active"

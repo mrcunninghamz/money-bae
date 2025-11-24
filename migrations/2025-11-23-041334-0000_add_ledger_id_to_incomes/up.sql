@@ -1,0 +1,2 @@
+ALTER TABLE incomes
+ADD COLUMN ledger_id INTEGER REFERENCES ledgers(id) ON DELETE SET NULL;

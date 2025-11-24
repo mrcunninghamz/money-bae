@@ -1,0 +1,8 @@
+CREATE TABLE bills (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR NOT NULL,
+    amount NUMERIC(10, 2) NOT NULL,
+    due_day DATE NOT NULL,
+    is_auto_pay BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
