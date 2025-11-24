@@ -1,2 +1,25 @@
+# Rust build artifacts
 /target
+
+# Environment variables
 .env
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude Code local files
+.claude/
+
+# Cargo
+Cargo.lock.bak
+
+# Debug files
+*.pdb
