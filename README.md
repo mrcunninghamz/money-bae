@@ -64,6 +64,12 @@ cargo install --path .
 Then run from anywhere:
 ```bash
 money-bae
+
+# Check version
+money-bae --version
+
+# Show help
+money-bae --help
 ```
 
 ### Development Workflow
@@ -77,6 +83,26 @@ cargo install --path .
 
 # Uninstall
 cargo uninstall money-bae
+```
+
+### Version Management
+
+When ready to release a new version:
+
+1. Update version in `Cargo.toml`
+2. Commit the version bump
+3. Create a git tag
+4. Install system-wide
+
+```bash
+# Update Cargo.toml version, then:
+git add Cargo.toml
+git commit -m "Bump version to 0.2.0"
+git tag -a v0.2.0 -m "Release 0.2.0: Description of changes"
+git push origin v0.2.0
+
+# Install the new version
+cargo install --path .
 ```
 
 ## Usage

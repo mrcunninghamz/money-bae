@@ -15,7 +15,33 @@ use cursive::theme::{BorderStyle, Palette};
 use cursive::traits::With;
 use cursive::views::TextView;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 fn main() {
+    // Handle CLI arguments
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 {
+        match args[1].as_str() {
+            "--version" | "-v" => {
+                println!("money-bae {}", VERSION);
+                return;
+            }
+            "--help" | "-h" => {
+                println!("money-bae {} - Personal Finance Tracker", VERSION);
+                println!("\nUsage: money-bae [OPTIONS]\n");
+                println!("Options:");
+                println!("  -v, --version    Show version information");
+                println!("  -h, --help       Show this help message");
+                return;
+            }
+            _ => {
+                eprintln!("Unknown option: {}", args[1]);
+                eprintln!("Try 'money-bae --help' for more information");
+                std::process::exit(1);
+            }
+        }
+    }
+
     let mut siv = cursive::default();
     // Start with a nicer theme than default
     siv.set_theme(cursive::theme::Theme {
@@ -56,7 +82,7 @@ fn main() {
 
 
     let main_menu = common_layout::create_screen(
-        "money-bae",
+        &format!("money-bae v{}", VERSION),
         TextView::new("Personal Finance Tracker\n\nPress a key to begin:").center(),
         &common_layout::standard_footer()
     );
@@ -88,7 +114,7 @@ fn clear(siv: &mut Cursive){
     siv.pop_layer();
 
     let main_menu = common_layout::create_screen(
-        "money-bae",
+        &format!("money-bae v{}", VERSION),
         TextView::new("Personal Finance Tracker\n\nPress a key to begin:").center(),
         &common_layout::standard_footer()
     );
