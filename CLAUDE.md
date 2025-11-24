@@ -6,6 +6,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 money-bae: Terminal UI personal finance tracker built with Rust using the Cursive TUI library. Tracks income and bills through an interactive ncurses-based interface.
 
+## Environment Setup
+
+**Critical:** `MONEYBAE_DATABASE_URL` must be set for application to run.
+
+### For Development (cargo run)
+```bash
+# .env file (gitignored, in project root)
+MONEYBAE_DATABASE_URL=postgres://username@localhost/money_bae
+```
+
+### For System-wide Installation
+```bash
+# Add to ~/.zshrc or ~/.bashrc
+export MONEYBAE_DATABASE_URL="postgres://username@localhost/money_bae"
+
+# Reload shell
+source ~/.zshrc
+```
+
+**Why both?**
+- `.env`: Used by `cargo run` from project directory
+- Shell export: Required for installed binary (`money-bae` command) to work from any directory
+
 ## Build & Run Commands
 
 ```bash
