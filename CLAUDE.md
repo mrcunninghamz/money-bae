@@ -32,6 +32,9 @@ cargo check
 # Test changes during development
 cargo run
 
+# Check version
+cargo run -- --version
+
 # When satisfied with changes, update system-wide binary
 cargo install --path .
 
@@ -39,11 +42,41 @@ cargo install --path .
 # Run from anywhere: money-bae
 ```
 
+### Version Release Workflow
+
+When ready to release a new version:
+
+1. **Update version** in `Cargo.toml` (follow semantic versioning)
+2. **Commit version bump**:
+   ```bash
+   git add Cargo.toml
+   git commit -m "Bump version to X.Y.Z"
+   ```
+3. **Create git tag**:
+   ```bash
+   git tag -a vX.Y.Z -m "Release X.Y.Z: Brief description of changes"
+   git push origin vX.Y.Z
+   ```
+4. **Install system-wide**:
+   ```bash
+   cargo install --path .
+   ```
+5. **Verify**:
+   ```bash
+   money-bae --version
+   ```
+
+### Semantic Versioning Guide
+- **Major (X.0.0)**: Breaking changes, incompatible API changes
+- **Minor (0.X.0)**: New features, backwards-compatible
+- **Patch (0.0.X)**: Bug fixes, backwards-compatible
+
 ### Notes
 - `cargo run`: Use during development, no installation needed
 - `cargo install --path .`: Rebuilds and replaces system-wide binary
 - No need to uninstall between updates
 - Uninstall: `cargo uninstall money-bae`
+- Version displayed in TUI title bar and via `--version` flag
 
 ## Architecture
 
