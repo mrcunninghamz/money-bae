@@ -92,15 +92,16 @@ fn main() {
 
             {
                 // First, override some colors from the base palette.
-                use cursive::theme::Color::TerminalDefault;
+                use cursive::theme::Color::{TerminalDefault, Rgb};
                 use cursive::theme::PaletteColor::*;
 
                 palette[Background] = TerminalDefault;
                 palette[View] = TerminalDefault;
-                palette[Primary] = White.dark();
+                palette[Primary] = White.light();
                 palette[TitlePrimary] = Blue.light();
                 palette[Secondary] = Blue.light();
                 palette[Highlight] = Blue.dark();
+                palette[HighlightText] = Rgb(255, 255, 255);  // Pure white text on highlighted rows
             }
 
             {
