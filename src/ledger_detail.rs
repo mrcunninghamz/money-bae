@@ -3,7 +3,7 @@ use bigdecimal::BigDecimal;
 use chrono::Datelike;
 use cursive::Cursive;
 use cursive::traits::*;
-use cursive::views::{Button, Dialog, EditView, HideableView, LinearLayout, Panel, SelectView, TextView};
+use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, SelectView, TextView};
 use cursive_table_view::{TableView, TableViewItem};
 use diesel::prelude::*;
 
@@ -13,9 +13,10 @@ use crate::db::establish_connection;
 use crate::ui_helpers::toggle_buttons_visible;
 
 // Button name constants
+const BILL_EDIT_BUTTON: &str = "ledger_bill_edit_button";
 const BILL_TOGGLE_PAID_BUTTON: &str = "ledger_bill_toggle_paid_button";
 const BILL_DELETE_BUTTON: &str = "ledger_bill_delete_button";
-const BILL_TOGGLE_BUTTONS: &[&str] = &[BILL_TOGGLE_PAID_BUTTON, BILL_DELETE_BUTTON];
+const BILL_TOGGLE_BUTTONS: &[&str] = &[BILL_EDIT_BUTTON, BILL_TOGGLE_PAID_BUTTON, BILL_DELETE_BUTTON];
 
 const INCOME_DELETE_BUTTON: &str = "ledger_income_delete_button";
 const INCOME_TOGGLE_BUTTONS: &[&str] = &[INCOME_DELETE_BUTTON];
@@ -118,7 +119,7 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
             bill_id: b.id,
             bill_name: b.name,
             amount: lb.amount.clone(),
-            due_day: lb.due_day.format("%d/%m").to_string(),
+            due_day: lb.due_day.map_or("-".to_string(), |d| d.format("%d/%m").to_string()),
             is_payed: lb.is_payed,
         })
         .collect();
@@ -210,6 +211,7 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
     // Create bills section with buttons
     let bill_buttons = LinearLayout::horizontal()
         .child(Button::new("Add", move |s| add_bill_to_ledger(s, target_ledger_id)))
+        .child(HideableView::new(Button::new("Edit", move |s| edit_ledger_bill(s, target_ledger_id))).with_name(BILL_EDIT_BUTTON))
         .child(HideableView::new(Button::new("Toggle Paid", move |s| toggle_bill_paid(s, target_ledger_id))).with_name(BILL_TOGGLE_PAID_BUTTON))
         .child(HideableView::new(Button::new("Delete", move |s| delete_bill_from_ledger(s, target_ledger_id))).with_name(BILL_DELETE_BUTTON));
 
@@ -369,7 +371,8 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32) {
 
     let mut select = SelectView::new();
     for bill in available_bills {
-        let label = format!("{} - ${} - {}", bill.name, bill.amount, bill.due_day.format("%-d"));
+        let due_day_str = bill.due_day.map_or("-".to_string(), |d| d.format("%-d").to_string());
+        let label = format!("{} - ${} - {}", bill.name, bill.amount, due_day_str);
         select.add_item(label, (bill.id, bill.amount, bill.due_day, bill.is_auto_pay));
     }
 
@@ -377,7 +380,7 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32) {
         Dialog::around(select.with_name("bill_select"))
             .title("Select Bill to Add")
             .button("Add", move |s| {
-                let bill_data = s.call_on_name("bill_select", |v: &mut SelectView<(i32, BigDecimal, chrono::NaiveDate, bool)>| {
+                let bill_data = s.call_on_name("bill_select", |v: &mut SelectView<(i32, BigDecimal, Option<chrono::NaiveDate>, bool)>| {
                     v.selection()
                 }).unwrap();
 
@@ -386,11 +389,13 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32) {
                     let mut conn = establish_connection();
 
                     // Create due_day for this ledger (use bill's day with ledger's month/year)
-                    let ledger_due_day = chrono::NaiveDate::from_ymd_opt(
-                        ledger_year,
-                        ledger_month,
-                        due_day.day()
-                    ).unwrap_or(due_day);
+                    let ledger_due_day = due_day.and_then(|d| {
+                        chrono::NaiveDate::from_ymd_opt(
+                            ledger_year,
+                            ledger_month,
+                            d.day()
+                        )
+                    });
 
                     // Insert into ledger_bills
                     use crate::schema::ledger_bills;
@@ -462,6 +467,95 @@ fn delete_bill_from_ledger(siv: &mut Cursive, ledger_id: i32) {
                     show_ledger_detail(s, ledger_id); // Refresh view
                 })
                 .button("No", |s| { s.pop_layer(); })
+        );
+    }
+}
+
+fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
+    let selected = siv.call_on_name("bills_table", |v: &mut TableView<LedgerBillDisplay, BillColumn>| {
+        v.borrow_item(v.item().unwrap()).cloned()
+    }).flatten();
+
+    if let Some(bill) = selected {
+        let bill_id = bill.id;
+
+        // Get the current bill data from database to get the actual due_day
+        let mut conn = establish_connection();
+        let ledger_bill = schema::ledger_bills::table
+            .find(bill_id)
+            .first::<models::LedgerBill>(&mut conn)
+            .expect("Error loading ledger bill");
+
+        let form = ListView::new()
+            .child("Amount", EditView::new()
+                .content(bill.amount.to_string())
+                .with_name("edit_bill_amount")
+                .fixed_width(20))
+            .child("Due Day (DD/MM)", EditView::new()
+                .content(ledger_bill.due_day.map_or("".to_string(), |d| d.format("%d/%m").to_string()))
+                .with_name("edit_bill_due_day")
+                .fixed_width(20))
+            .child("Paid", Checkbox::new()
+                .with_checked(bill.is_payed)
+                .with_name("edit_bill_paid"));
+
+        siv.add_layer(
+            Dialog::around(form)
+                .title(format!("Edit: {}", bill.bill_name))
+                .button("Save", move |s| {
+                    let amount_str = s.call_on_name("edit_bill_amount", |v: &mut EditView| {
+                        v.get_content()
+                    }).unwrap();
+
+                    let due_day_str = s.call_on_name("edit_bill_due_day", |v: &mut EditView| {
+                        v.get_content()
+                    }).unwrap();
+
+                    let is_paid = s.call_on_name("edit_bill_paid", |v: &mut Checkbox| {
+                        v.is_checked()
+                    }).unwrap();
+
+                    // Parse amount
+                    let amount = match amount_str.to_string().parse::<BigDecimal>() {
+                        Ok(a) => a,
+                        Err(_) => {
+                            s.add_layer(Dialog::info("Invalid amount format"));
+                            return;
+                        }
+                    };
+
+                    // Parse due day (optional)
+                    let due_day = if due_day_str.is_empty() {
+                        None
+                    } else {
+                        match chrono::NaiveDate::parse_from_str(&format!("{}/2024", due_day_str.to_string()), "%d/%m/%Y") {
+                            Ok(d) => Some(d),
+                            Err(_) => {
+                                s.add_layer(Dialog::info("Invalid date format (use DD/MM)"));
+                                return;
+                            }
+                        }
+                    };
+
+                    let mut conn = establish_connection();
+
+                    // Update ledger bill
+                    diesel::update(schema::ledger_bills::table.find(bill_id))
+                        .set((
+                            schema::ledger_bills::amount.eq(amount),
+                            schema::ledger_bills::due_day.eq(due_day),
+                            schema::ledger_bills::is_payed.eq(is_paid),
+                        ))
+                        .execute(&mut conn)
+                        .expect("Error updating ledger bill");
+
+                    // Recalculate totals
+                    recalculate_ledger_totals(&mut conn, ledger_id);
+
+                    s.pop_layer(); // Close dialog
+                    show_ledger_detail(s, ledger_id); // Refresh view
+                })
+                .button("Cancel", |s| { s.pop_layer(); })
         );
     }
 }

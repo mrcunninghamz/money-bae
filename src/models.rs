@@ -27,7 +27,7 @@ pub struct Bill {
     pub id: i32,
     pub name: String,
     pub amount: BigDecimal,
-    pub due_day: NaiveDate,
+    pub due_day: Option<NaiveDate>,
     pub is_auto_pay: bool,
     pub created_at: chrono::NaiveDateTime,
 }
@@ -37,7 +37,7 @@ pub struct Bill {
 pub struct NewBill {
     pub name: String,
     pub amount: BigDecimal,
-    pub due_day: NaiveDate,
+    pub due_day: Option<NaiveDate>,
     pub is_auto_pay: bool,
 }
 
@@ -69,7 +69,7 @@ pub struct LedgerBill {
     pub ledger_id: i32,
     pub bill_id: i32,
     pub amount: BigDecimal,
-    pub due_day: NaiveDate,
+    pub due_day: Option<NaiveDate>,
     pub is_payed: bool,
     pub created_at: chrono::NaiveDateTime,
 }
@@ -80,6 +80,6 @@ pub struct NewLedgerBill {
     pub ledger_id: i32,
     pub bill_id: i32,
     pub amount: BigDecimal,
-    pub due_day: NaiveDate,
+    pub due_day: Option<NaiveDate>,
     pub is_payed: bool,
 }

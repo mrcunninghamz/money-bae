@@ -109,6 +109,18 @@ git push origin v0.2.0
 cargo install --path .
 ```
 
+## Logs
+
+Application logs (including panics) are written to:
+- **Primary:** `~/.money-bae.log` (hidden file in home directory)
+- **Fallback:** `./money-bae.log` (current directory)
+- **Last resort:** `/tmp/money-bae.log`
+
+View logs:
+```bash
+tail -f ~/.money-bae.log
+```
+
 ## Usage
 
 ### Navigation

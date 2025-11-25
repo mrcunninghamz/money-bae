@@ -30,7 +30,7 @@ struct BillDisplay {
     id: i32,
     name: String,
     amount: BigDecimal,
-    due_day: u32,
+    due_day: Option<u32>,
     is_auto_pay: bool
 }
 
@@ -40,7 +40,7 @@ impl From<models::Bill> for BillDisplay {
             id: bill.id,
             name: bill.name,
             amount: bill.amount,
-            due_day: bill.due_day.day(),
+            due_day: bill.due_day.map(|d| d.day()),
             is_auto_pay: bill.is_auto_pay,
         }
     }
@@ -51,7 +51,7 @@ impl TableViewItem<BasicColumn> for BillDisplay {
         match column {
             BasicColumn::Name => self.name.to_string(),
             BasicColumn::Amount => self.amount.to_string(),
-            BasicColumn::DueDay => self.due_day.to_string(),
+            BasicColumn::DueDay => self.due_day.map_or("-".to_string(), |d| d.to_string()),
             BasicColumn::IsAutoPay => self.is_auto_pay.to_string()
         }
     }
@@ -149,7 +149,7 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
 
     let due_day_value = existing
         .as_ref()
-        .map(|b| b.due_day.to_string())
+        .map(|b| b.due_day.map_or("".to_string(), |d| d.to_string()))
         .unwrap_or_else(|| Local::now().day().to_string());
 
     let auto_pay_value = existing
@@ -225,7 +225,7 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
                     let new_bill = models::NewBill {
                         name: name_str.to_string(),
                         amount: amount_bd.unwrap(),
-                        due_day: due_date.unwrap(),
+                        due_day: due_date,
                         is_auto_pay: is_auto,
                     };
 
