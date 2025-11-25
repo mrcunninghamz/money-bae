@@ -380,7 +380,7 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32) {
         Dialog::around(select.with_name("bill_select"))
             .title("Select Bill to Add")
             .button("Add", move |s| {
-                let bill_data = s.call_on_name("bill_select", |v: &mut SelectView<(i32, BigDecimal, chrono::NaiveDate, bool)>| {
+                let bill_data = s.call_on_name("bill_select", |v: &mut SelectView<(i32, BigDecimal, Option<chrono::NaiveDate>, bool)>| {
                     v.selection()
                 }).unwrap();
 
@@ -389,11 +389,13 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32) {
                     let mut conn = establish_connection();
 
                     // Create due_day for this ledger (use bill's day with ledger's month/year)
-                    let ledger_due_day = chrono::NaiveDate::from_ymd_opt(
-                        ledger_year,
-                        ledger_month,
-                        due_day.day()
-                    ).unwrap_or(due_day);
+                    let ledger_due_day = due_day.and_then(|d| {
+                        chrono::NaiveDate::from_ymd_opt(
+                            ledger_year,
+                            ledger_month,
+                            d.day()
+                        )
+                    });
 
                     // Insert into ledger_bills
                     use crate::schema::ledger_bills;
