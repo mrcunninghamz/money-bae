@@ -300,9 +300,6 @@ fn add_income_to_ledger(siv: &mut Cursive, ledger_id: i32) {
                         .execute(&mut conn)
                         .expect("Error assigning income");
 
-                    // Recalculate totals
-                    recalculate_ledger_totals(&mut conn, ledger_id);
-
                     s.pop_layer(); // Close dialog
                     show_ledger_detail(s, ledger_id); // Refresh view
                 }
@@ -327,9 +324,6 @@ fn delete_income_from_ledger(siv: &mut Cursive, ledger_id: i32) {
                         .set(schema::incomes::ledger_id.eq::<Option<i32>>(None))
                         .execute(&mut conn)
                         .expect("Error removing income");
-
-                    // Recalculate totals
-                    recalculate_ledger_totals(&mut conn, ledger_id);
 
                     s.pop_layer(); // Close dialog
                     show_ledger_detail(s, ledger_id); // Refresh view
@@ -410,9 +404,6 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32) {
                         .execute(&mut conn)
                         .expect("Error adding bill to ledger");
 
-                    // Recalculate totals
-                    recalculate_ledger_totals(&mut conn, ledger_id);
-
                     s.pop_layer(); // Close dialog
                     show_ledger_detail(s, ledger_id); // Refresh view
                 }
@@ -436,9 +427,6 @@ fn toggle_bill_paid(siv: &mut Cursive, ledger_id: i32) {
             .execute(&mut conn)
             .expect("Error updating bill paid status");
 
-        // Recalculate totals
-        recalculate_ledger_totals(&mut conn, ledger_id);
-
         // Refresh view
         show_ledger_detail(siv, ledger_id);
     }
@@ -459,9 +447,6 @@ fn delete_bill_from_ledger(siv: &mut Cursive, ledger_id: i32) {
                     diesel::delete(schema::ledger_bills::table.find(bill.id))
                         .execute(&mut conn)
                         .expect("Error deleting bill from ledger");
-
-                    // Recalculate totals
-                    recalculate_ledger_totals(&mut conn, ledger_id);
 
                     s.pop_layer(); // Close dialog
                     show_ledger_detail(s, ledger_id); // Refresh view
@@ -549,9 +534,6 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
                         .execute(&mut conn)
                         .expect("Error updating ledger bill");
 
-                    // Recalculate totals
-                    recalculate_ledger_totals(&mut conn, ledger_id);
-
                     s.pop_layer(); // Close dialog
                     show_ledger_detail(s, ledger_id); // Refresh view
                 })
@@ -559,32 +541,6 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
         );
     }
 }
-
-fn recalculate_ledger_totals(conn: &mut diesel::PgConnection, ledger_id: i32) {
-    // Calculate total income
-    let total_income: Option<BigDecimal> = schema::incomes::table
-        .filter(schema::incomes::ledger_id.eq(ledger_id))
-        .select(diesel::dsl::sum(schema::incomes::amount))
-        .first(conn)
-        .expect("Error calculating income");
-
-    // Calculate total expenses
-    let total_expenses: Option<BigDecimal> = schema::ledger_bills::table
-        .filter(schema::ledger_bills::ledger_id.eq(ledger_id))
-        .select(diesel::dsl::sum(schema::ledger_bills::amount))
-        .first(conn)
-        .expect("Error calculating expenses");
-
-    // Update ledger
-    diesel::update(schema::ledgers::table.find(ledger_id))
-        .set((
-            schema::ledgers::income.eq(total_income.unwrap_or(BigDecimal::from(0))),
-            schema::ledgers::expenses.eq(total_expenses.unwrap_or(BigDecimal::from(0))),
-        ))
-        .execute(conn)
-        .expect("Error updating ledger totals");
-}
-
 fn update_bank_balance(siv: &mut Cursive, ledger_id: i32) {
     let mut conn = establish_connection();
 

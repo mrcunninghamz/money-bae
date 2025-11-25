@@ -15,8 +15,9 @@ use crate::ui_helpers::toggle_buttons_visible;
 
 // Button name constants
 const INCOME_EDIT_BUTTON: &str = "income_table_edit_button";
+const INCOME_DUPLICATE_BUTTON: &str = "income_table_duplicate_button";
 const INCOME_DELETE_BUTTON: &str = "income_table_delete_button";
-const TOGGLE_BUTTONS: &[&str] = &[INCOME_EDIT_BUTTON, INCOME_DELETE_BUTTON];
+const TOGGLE_BUTTONS: &[&str] = &[INCOME_EDIT_BUTTON, INCOME_DUPLICATE_BUTTON, INCOME_DELETE_BUTTON];
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 enum BasicColumn {
@@ -98,6 +99,7 @@ impl IncomeTableView {
                     income_form(s, Some(income));
                 }
             })).with_name(INCOME_EDIT_BUTTON))
+            .child(HideableView::new(Button::new("Duplicate", |s| duplicate_income(s))).with_name(INCOME_DUPLICATE_BUTTON))
             .child(HideableView::new(Button::new("Delete", |s| delete_income(s))).with_name(INCOME_DELETE_BUTTON));
 
         let income_count = self.table.len();
@@ -252,5 +254,44 @@ fn delete_income(siv: &mut Cursive) {
                 })
                 .button("No", |s| { s.pop_layer(); })
         );
+    }
+}
+
+fn duplicate_income(siv: &mut Cursive) {
+    let selected = siv.call_on_name("income_table", |v: &mut TableView<IncomeDisplay, BasicColumn>| {
+        v.borrow_item(v.item().unwrap()).cloned()
+    }).flatten();
+
+    if let Some(income) = selected {
+        let mut conn = establish_connection();
+
+        // Create new income with today's date
+        let new_income = models::NewIncome {
+            date: Local::now().date_naive(),
+            amount: income.amount,
+        };
+
+        diesel::insert_into(incomes)
+            .values(&new_income)
+            .execute(&mut conn)
+            .expect("Error duplicating income");
+
+        // Reload table
+        let results = incomes
+            .load::<models::Income>(&mut conn)
+            .expect("Error loading incomes");
+
+        let income_displays: Vec<IncomeDisplay> = results
+            .into_iter()
+            .map(|i| i.into())
+            .collect();
+
+        let income_count = income_displays.len();
+
+        siv.call_on_name("income_table", |v: &mut TableView<IncomeDisplay, BasicColumn>| {
+            v.set_items(income_displays);
+        });
+
+        toggle_buttons_visible(siv, income_count, TOGGLE_BUTTONS);
     }
 }
