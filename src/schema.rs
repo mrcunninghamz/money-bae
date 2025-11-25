@@ -5,7 +5,7 @@ diesel::table! {
         id -> Int4,
         name -> Varchar,
         amount -> Numeric,
-        due_day -> Date,
+        due_day -> Nullable<Date>,
         is_auto_pay -> Bool,
         created_at -> Timestamp,
     }
@@ -27,7 +27,7 @@ diesel::table! {
         ledger_id -> Int4,
         bill_id -> Int4,
         amount -> Numeric,
-        due_day -> Date,
+        due_day -> Nullable<Date>,
         is_payed -> Bool,
         created_at -> Timestamp,
     }
