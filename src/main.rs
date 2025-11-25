@@ -14,10 +14,50 @@ use cursive::Cursive;
 use cursive::theme::{BorderStyle, Palette};
 use cursive::traits::With;
 use cursive::views::TextView;
+use simplelog::*;
+use std::fs::File;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
+    // Initialize logging to file (since TUI uses stdio)
+    let log_path = std::env::var("HOME")
+        .map(|h| format!("{}/.money-bae.log", h))
+        .unwrap_or_else(|_| "money-bae.log".to_string());
+
+    CombinedLogger::init(vec![
+        WriteLogger::new(
+            LevelFilter::Info,
+            Config::default(),
+            File::create(&log_path).unwrap_or_else(|_| {
+                eprintln!("Warning: Could not create log file at {}", log_path);
+                File::create("/tmp/money-bae.log").expect("Failed to create fallback log file")
+            }),
+        ),
+    ]).ok(); // Ignore if logging fails to initialize
+
+    // Log panics to file
+    std::panic::set_hook(Box::new(|panic_info| {
+        let payload = panic_info.payload();
+        let message = if let Some(s) = payload.downcast_ref::<&str>() {
+            s
+        } else if let Some(s) = payload.downcast_ref::<String>() {
+            s.as_str()
+        } else {
+            "Unknown panic payload"
+        };
+
+        let location = if let Some(loc) = panic_info.location() {
+            format!("{}:{}:{}", loc.file(), loc.line(), loc.column())
+        } else {
+            "unknown location".to_string()
+        };
+
+        log::error!("PANIC at {}: {}", location, message);
+    }));
+
+    log::info!("money-bae v{} started", VERSION);
+
     // Handle CLI arguments
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 {

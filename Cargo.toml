@@ -10,3 +10,5 @@ cursive_table_view = "0.14"
 diesel = { version = "2.2", features = ["postgres", "chrono", "numeric"] }
 dotenvy = "0.15"
 bigdecimal = "0.4"
+log = "0.4"
+simplelog = "0.12"
