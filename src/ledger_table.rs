@@ -106,9 +106,17 @@ impl LedgerTableView {
         siv.pop_layer();
 
         let buttons = LinearLayout::horizontal()
-            .child(Button::new("Add", |s| add_ledger_dialog(s)))
+            .child(Button::new("Add", |s| add_ledger_dialog(s, None)))
             .child(HideableView::new(Button::new("View", |s| view_ledger_detail(s))).with_name(LEDGER_VIEW_BUTTON))
-            .child(HideableView::new(Button::new("Duplicate", |s| duplicate_ledger(s))).with_name(LEDGER_DUPLICATE_BUTTON))
+            .child(HideableView::new(Button::new("Duplicate", |s| {
+                let selected = s.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
+                    v.borrow_item(v.item().unwrap()).cloned()
+                }).flatten();
+
+                if let Some(ledger) = selected {
+                    add_ledger_dialog(s, Some(ledger));
+                }
+            })).with_name(LEDGER_DUPLICATE_BUTTON))
             .child(HideableView::new(Button::new("Delete", |s| delete_ledger(s))).with_name(LEDGER_DELETE_BUTTON));
 
         let ledger_count = self.table.len();
@@ -132,57 +140,51 @@ impl LedgerTableView {
     }
 }
 
-fn add_ledger_dialog(siv: &mut Cursive) {
-    let today = Local::now().format("%d/%m/%Y").to_string();
+fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
+    let is_duplicating = existing.is_some();
+
+    let title = if is_duplicating { "Duplicate Ledger" } else { "Add Ledger" };
+
+    let ledger_date = if is_duplicating {
+        existing.as_ref().map(|l| l.date.clone()).unwrap_or_default().format("%d/%m/%Y").to_string()}
+    else {
+        Local::now().format("%d/%m/%Y").to_string()
+    };
+
+    let button_label = if is_duplicating { "Duplicate" } else { "Ok" };
 
     siv.add_layer(
         Dialog::new()
-            .title("Add Ledger")
-            .button("Ok", |s| {
-                let date_str = s.call_on_name("date_input", |v: &mut EditView| {
-                    v.get_content()
-                }).unwrap();
+            .title(title)
+            .button(button_label, move |s| {
+                if is_duplicating {
+                    let date_str = s.call_on_name("date_input", |v: &mut EditView| {
+                        v.get_content()
+                    }).unwrap();
 
-                let parsed_date = NaiveDate::parse_from_str(&date_str, "%d/%m/%Y");
+                    let parsed_date = NaiveDate::parse_from_str(&date_str, "%d/%m/%Y");
 
-                if parsed_date.is_err() {
-                    s.add_layer(Dialog::info("Invalid date format. Use DD/MM/YYYY"));
-                    return;
+                    if parsed_date.is_err() {
+                        s.add_layer(Dialog::info("Invalid date format. Use DD/MM/YYYY"));
+                        return;
+                    }
+
+                    let new_ledger = models::NewLedger {
+                        date: parsed_date.unwrap(),
+                        bank_balance: existing.as_ref().map(|l| l.bank_balance.clone()).unwrap_or(BigDecimal::from(0)),
+                    };
+
+                    duplicate_ledger(s, existing.clone(), new_ledger);
+                }
+                else {
+                    add_ledger(s);
                 }
 
-                let mut conn = establish_connection();
-                let new_ledger = models::NewLedger {
-                    date: parsed_date.unwrap(),
-                    bank_balance: BigDecimal::from(0),
-                };
-
-                diesel::insert_into(ledgers)
-                    .values(&new_ledger)
-                    .execute(&mut conn)
-                    .expect("Error saving ledger");
-
-                // Reload table
-                let results = ledgers
-                    .load::<models::Ledger>(&mut conn)
-                    .expect("Error loading ledgers");
-
-                let ledger_displays: Vec<LedgerDisplay> = results
-                    .into_iter()
-                    .map(|l| l.into())
-                    .collect();
-                let ledger_count = ledger_displays.len();
-
-                s.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
-                    v.set_items(ledger_displays);
-                });
-                s.pop_layer();
-
-                toggle_buttons_visible(s, ledger_count, TOGGLE_BUTTONS);
             })
             .button("Cancel", |s| { s.pop_layer(); })
             .content(
                 ListView::new()
-                    .child("Date (DD/MM/YYYY)", EditView::new().content(today).with_name("date_input").fixed_width(20))
+                    .child("Date (DD/MM/YYYY)", EditView::new().content(ledger_date).with_name("date_input").fixed_width(20))
             )
     );
 }
@@ -196,20 +198,52 @@ fn view_ledger_detail(siv: &mut Cursive) {
         crate::ledger_detail::show_ledger_detail(siv, ledger.id);
     }
 }
+fn add_ledger(s: &mut Cursive) {
+    let date_str = s.call_on_name("date_input", |v: &mut EditView| {
+        v.get_content()
+    }).unwrap();
 
-fn duplicate_ledger(siv: &mut Cursive) {
-    let selected = siv.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
-        v.borrow_item(v.item().unwrap()).cloned()
-    }).flatten();
+    let parsed_date = NaiveDate::parse_from_str(&date_str, "%d/%m/%Y");
+
+    if parsed_date.is_err() {
+        s.add_layer(Dialog::info("Invalid date format. Use DD/MM/YYYY"));
+        return;
+    }
+
+    let mut conn = establish_connection();
+    let new_ledger = models::NewLedger {
+        date: parsed_date.unwrap(),
+        bank_balance: BigDecimal::from(0),
+    };
+
+    diesel::insert_into(ledgers)
+        .values(&new_ledger)
+        .execute(&mut conn)
+        .expect("Error saving ledger");
+
+    // Reload table
+    let results = ledgers
+        .load::<models::Ledger>(&mut conn)
+        .expect("Error loading ledgers");
+
+    let ledger_displays: Vec<LedgerDisplay> = results
+        .into_iter()
+        .map(|l| l.into())
+        .collect();
+    let ledger_count = ledger_displays.len();
+
+    s.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
+        v.set_items(ledger_displays);
+    });
+    s.pop_layer();
+
+    toggle_buttons_visible(s, ledger_count, TOGGLE_BUTTONS);
+}
+
+fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>, new_ledger: models::NewLedger) {
 
     if let Some(ledger) = selected {
         let mut conn = establish_connection();
-
-        // Create new ledger with today's date
-        let new_ledger = models::NewLedger {
-            date: Local::now().date_naive(),
-            bank_balance: ledger.bank_balance,
-        };
 
         let new_ledger_record: models::Ledger = diesel::insert_into(ledgers)
             .values(&new_ledger)
@@ -258,11 +292,13 @@ fn duplicate_ledger(siv: &mut Cursive) {
 
         let ledger_count = ledger_displays.len();
 
-        siv.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
+        s.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
             v.set_items(ledger_displays);
         });
 
-        toggle_buttons_visible(siv, ledger_count, TOGGLE_BUTTONS);
+        s.pop_layer();
+
+        toggle_buttons_visible(s, ledger_count, TOGGLE_BUTTONS);
     }
 }
 
