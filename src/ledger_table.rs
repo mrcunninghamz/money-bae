@@ -146,8 +146,8 @@ fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
     let title = if is_duplicating { "Duplicate Ledger" } else { "Add Ledger" };
 
     let ledger_date = if is_duplicating {
-        existing.as_ref().map(|l| l.date.clone()).unwrap_or_default().format("%d/%m/%Y").to_string()}
-    else {
+        existing.as_ref().map(|l| l.date.clone()).unwrap_or_default().format("%d/%m/%Y").to_string()
+    } else {
         Local::now().format("%d/%m/%Y").to_string()
     };
 
