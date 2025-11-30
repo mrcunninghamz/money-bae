@@ -171,7 +171,7 @@ fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
 
                     let new_ledger = models::NewLedger {
                         date: parsed_date.unwrap(),
-                        bank_balance: existing.as_ref().map(|l| l.bank_balance.clone()).unwrap_or(BigDecimal::from(0)),
+                        bank_balance: existing.as_ref().unwrap().bank_balance.clone(),
                     };
 
                     duplicate_ledger(s, existing.clone(), new_ledger);
