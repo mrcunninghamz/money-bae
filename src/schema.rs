@@ -42,6 +42,9 @@ diesel::table! {
         expenses -> Numeric,
         net -> Nullable<Numeric>,
         created_at -> Timestamp,
+        #[max_length = 255]
+        name -> Nullable<Varchar>,
+        total -> Nullable<Numeric>,
     }
 }
 

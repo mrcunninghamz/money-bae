@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use bigdecimal::BigDecimal;
-use chrono::Datelike;
+use chrono::{Datelike, NaiveDate};
 use cursive::Cursive;
 use cursive::traits::*;
 use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, SelectView, TextView};
@@ -178,8 +178,9 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
 
     // Create summary text with two-column bill breakdown
     let summary_text = format!(
-        "Bank Balance: ${}\n\n\
+        "Bank Balance: ${}\n
          Income: ${} ({} items)\n\n\
+         Available Funds: ${}\n\n\
          BILLS         PLANNED     PAID\n\
          ─────────────────────────────\n\
          Amount        ${}    ${}\n\
@@ -190,6 +191,7 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
         ledger.bank_balance,
         ledger.income,
         income_count,
+        ledger.total.unwrap_or(BigDecimal::from(0)),
         unpaid_bills_amount,
         paid_bills_amount,
         unpaid_bills_count,
@@ -222,7 +224,7 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
     // Create summary section with update button
     let summary_content = LinearLayout::vertical()
         .child(TextView::new(summary_text))
-        .child(Button::new("Update Bank Balance", move |s| update_bank_balance(s, target_ledger_id)));
+        .child(Button::new("Edit", move |s| update_ledger(s, target_ledger_id)));
 
     // Stack income and summary vertically in right column
     let right_column = LinearLayout::vertical()
@@ -237,7 +239,7 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
         .full_screen();
 
     let screen = crate::common_layout::create_screen(
-        &format!("Ledger: {}", ledger.date.format("%d/%m/%Y")),
+        &format!("{} : {}", ledger.name.unwrap_or("Untitled".to_string()), ledger.date.format("%d/%m/%Y")),
         content,
         &crate::common_layout::view_footer()
     );
@@ -541,7 +543,7 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
         );
     }
 }
-fn update_bank_balance(siv: &mut Cursive, ledger_id: i32) {
+fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
     let mut conn = establish_connection();
 
     // Get current bank balance
@@ -551,38 +553,68 @@ fn update_bank_balance(siv: &mut Cursive, ledger_id: i32) {
         .expect("Error loading ledger");
 
     let current_balance = ledger.bank_balance.to_string();
+    let name = ledger.name.unwrap_or_default();
+    let date = ledger.date;
 
     siv.add_layer(
         Dialog::around(
-            EditView::new()
-                .content(current_balance)
-                .with_name("bank_balance_input")
-                .fixed_width(20)
+
+            ListView::new()
+                .child("Date", EditView::new()
+                    .content(date.format("%d/%m/%Y").to_string())
+                    .with_name("ledger_date_input")
+                    .fixed_width(20))
+                .child("Name", EditView::new()
+                    .content(name)
+                    .with_name("ledger_name_input")
+                    .fixed_width(20))
+                .child("Bank Balance", EditView::new()
+                    .content(current_balance)
+                    .with_name("bank_balance_input")
+                    .fixed_width(20))
         )
-        .title("Update Bank Balance")
+        .title("Update Ledger")
         .button("Update", move |s| {
             let new_balance = s.call_on_name("bank_balance_input", |v: &mut EditView| {
                 v.get_content()
             }).unwrap();
 
-            // Parse the new balance
-            match new_balance.to_string().parse::<BigDecimal>() {
-                Ok(balance) => {
-                    let mut conn = establish_connection();
+            let name = s.call_on_name("ledger_name_input", |v: &mut EditView| {
+                v.get_content()
+            }).unwrap().to_string();
 
-                    // Update bank balance
-                    diesel::update(schema::ledgers::table.find(ledger_id))
-                        .set(schema::ledgers::bank_balance.eq(balance))
-                        .execute(&mut conn)
-                        .expect("Error updating bank balance");
+            let date = s.call_on_name("ledger_date_input", |v: &mut EditView| {
+                v.get_content()
+            }).unwrap();
 
-                    s.pop_layer(); // Close dialog
-                    show_ledger_detail(s, ledger_id); // Refresh view
-                }
-                Err(_) => {
-                    s.add_layer(Dialog::info("Invalid amount format"));
-                }
+            let parsed_date = NaiveDate::parse_from_str(&date, "%d/%m/%Y");
+
+            if parsed_date.is_err() {
+                s.add_layer(Dialog::info("Invalid date format. Use DD/MM/YYYY"));
+                return;
             }
+
+            let balance = new_balance.to_string().parse::<BigDecimal>();
+
+            if balance.is_err() {
+                s.add_layer(Dialog::info("Invalid balance format"));
+                return;
+            }
+
+            let mut conn = establish_connection();
+
+            // Update ledger
+            diesel::update(schema::ledgers::table.find(ledger_id))
+                .set((
+                    schema::ledgers::bank_balance.eq(balance.unwrap_or(BigDecimal::from(0))),
+                    schema::ledgers::date.eq(parsed_date.unwrap()),
+                    schema::ledgers::name.eq(name),
+                ))
+                .execute(&mut conn)
+                .expect("Error updating bank balance");
+
+            s.pop_layer(); // Close dialog
+            show_ledger_detail(s, ledger_id); // Refresh view
         })
         .button("Cancel", |s| { s.pop_layer(); })
     );
