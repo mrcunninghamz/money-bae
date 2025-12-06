@@ -208,7 +208,7 @@ fn get_form_values(s: &mut Cursive) -> (ParseResult<NaiveDate>, String) {
     (parsed_date, ledger_name.to_string())
 }
 fn add_ledger(s: &mut Cursive) {
-    let (parsed_date,ledger_name) = get_form_values(s);
+    let (parsed_date, ledger_name) = get_form_values(s);
 
     if parsed_date.is_err() {
         s.add_layer(Dialog::info("Invalid date format. Use DD/MM/YYYY"));
