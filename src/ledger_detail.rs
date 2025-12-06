@@ -611,7 +611,7 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
                     schema::ledgers::name.eq(name),
                 ))
                 .execute(&mut conn)
-                .expect("Error updating bank balance");
+                .expect("Error updating ledger");
 
             s.pop_layer(); // Close dialog
             show_ledger_detail(s, ledger_id); // Refresh view
