@@ -546,7 +546,7 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
 fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
     let mut conn = establish_connection();
 
-    // Get current bank balance
+    // Load ledger for editing
     let ledger = schema::ledgers::table
         .find(ledger_id)
         .first::<models::Ledger>(&mut conn)
