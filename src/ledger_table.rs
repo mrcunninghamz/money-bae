@@ -65,7 +65,7 @@ impl TableViewItem<BasicColumn> for LedgerDisplay {
             BasicColumn::Expenses => format!("${}", self.expenses),
             BasicColumn::Net => format!("${}", self.net),
             BasicColumn::Total => format!("${}", self.total),
-            BasicColumn::Name => format!("{}", self.name),
+            BasicColumn::Name => self.name.clone(),
         }
     }
 
