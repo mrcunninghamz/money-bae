@@ -161,6 +161,8 @@ fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
         Local::now().format("%d/%m/%Y").to_string()
     };
 
+    let ledger_name = existing.as_ref().map(|l| l.name.clone()).unwrap_or_default();
+
     let button_label = if is_duplicating { "Duplicate" } else { "Ok" };
 
     siv.add_layer(
@@ -179,7 +181,7 @@ fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
             .content(
                 ListView::new()
                     .child("Date (DD/MM/YYYY)", EditView::new().content(ledger_date).with_name("date_input").fixed_width(20))
-                    .child("Name", EditView::new().with_name("ledger_name").fixed_width(20))
+                    .child("Name", EditView::new().content(ledger_name).with_name("ledger_name").fixed_width(20))
             )
     );
 }
