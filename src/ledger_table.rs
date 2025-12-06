@@ -256,6 +256,10 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
             return;
         }
 
+        if ledger_name.trim().is_empty() {
+            s.add_layer(Dialog::info("Ledger name cannot be empty or whitespace."));
+            return;
+        }
         let new_ledger = models::NewLedger {
             date: parsed_date.unwrap(),
             name: ledger_name.to_string(),
