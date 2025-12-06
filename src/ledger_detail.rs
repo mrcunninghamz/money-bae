@@ -583,6 +583,12 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
                 v.get_content()
             }).unwrap().to_string();
 
+            // Validate name is not empty or whitespace
+            if name.trim().is_empty() {
+                s.add_layer(Dialog::info("Ledger name cannot be empty"));
+                return;
+            }
+
             let date = s.call_on_name("ledger_date_input", |v: &mut EditView| {
                 v.get_content()
             }).unwrap();
