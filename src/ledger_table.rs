@@ -249,7 +249,7 @@ fn add_ledger(s: &mut Cursive) {
 fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
 
     if let Some(ledger) = selected {
-        let (parsed_date,ledger_name) = get_form_values(s);
+        let (parsed_date, ledger_name) = get_form_values(s);
 
         if parsed_date.is_err() {
             s.add_layer(Dialog::info("Invalid date format. Use DD/MM/YYYY"));
