@@ -606,7 +606,7 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
             // Update ledger
             diesel::update(schema::ledgers::table.find(ledger_id))
                 .set((
-                    schema::ledgers::bank_balance.eq(balance.unwrap_or(BigDecimal::from(0))),
+                    schema::ledgers::bank_balance.eq(balance.unwrap()),
                     schema::ledgers::date.eq(parsed_date.unwrap()),
                     schema::ledgers::name.eq(name),
                 ))
