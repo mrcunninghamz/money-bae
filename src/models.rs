@@ -52,12 +52,15 @@ pub struct Ledger {
     pub expenses: BigDecimal,
     pub net: Option<BigDecimal>,
     pub created_at: chrono::NaiveDateTime,
+    pub name: Option<String>,
+    pub total: Option<BigDecimal>,
 }
 
 #[derive(Insertable)]
 #[diesel(table_name = crate::schema::ledgers)]
 pub struct NewLedger {
     pub date: NaiveDate,
+    pub name: String,
     pub bank_balance: BigDecimal,
 }
 

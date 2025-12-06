@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use bigdecimal::BigDecimal;
-use chrono::{Local, NaiveDate};
+use chrono::{Local, NaiveDate, ParseResult};
 use cursive::Cursive;
 use cursive::traits::*;
 use cursive::views::{Button, Dialog, EditView, HideableView, LinearLayout, ListView, Panel};
@@ -21,8 +21,10 @@ const TOGGLE_BUTTONS: &[&str] = &[LEDGER_VIEW_BUTTON, LEDGER_DUPLICATE_BUTTON, L
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 enum BasicColumn {
     Date,
+    Name,
     BankBalance,
     Income,
+    Total,
     Expenses,
     Net,
 }
@@ -31,8 +33,10 @@ enum BasicColumn {
 struct LedgerDisplay {
     id: i32,
     date: NaiveDate,
+    name: String,
     bank_balance: BigDecimal,
     income: BigDecimal,
+    total: BigDecimal,
     expenses: BigDecimal,
     net: BigDecimal,
 }
@@ -42,8 +46,10 @@ impl From<models::Ledger> for LedgerDisplay {
         LedgerDisplay {
             id: ledger.id,
             date: ledger.date,
+            name: ledger.name.unwrap_or_default(),
             bank_balance: ledger.bank_balance,
             income: ledger.income,
+            total: ledger.total.unwrap_or(BigDecimal::from(0)),
             expenses: ledger.expenses,
             net: ledger.net.unwrap_or(BigDecimal::from(0)),
         }
@@ -58,6 +64,8 @@ impl TableViewItem<BasicColumn> for LedgerDisplay {
             BasicColumn::Income => format!("${}", self.income),
             BasicColumn::Expenses => format!("${}", self.expenses),
             BasicColumn::Net => format!("${}", self.net),
+            BasicColumn::Total => format!("${}", self.total),
+            BasicColumn::Name => self.name.clone(),
         }
     }
 
@@ -66,11 +74,13 @@ impl TableViewItem<BasicColumn> for LedgerDisplay {
         Self: Sized
     {
         match column {
-            BasicColumn::Date => self.date.cmp(&other.date),
+            BasicColumn::Date => self.date.cmp(&other.date).reverse(),
             BasicColumn::BankBalance => self.bank_balance.cmp(&other.bank_balance),
             BasicColumn::Income => self.income.cmp(&other.income),
             BasicColumn::Expenses => self.expenses.cmp(&other.expenses),
             BasicColumn::Net => self.net.cmp(&other.net),
+            BasicColumn::Total => self.total.cmp(&other.total),
+            BasicColumn::Name => self.name.cmp(&other.name),
         }
     }
 }
@@ -94,8 +104,8 @@ impl LedgerTableView {
         Self {
             table: TableView::<LedgerDisplay, BasicColumn>::new()
                 .column(BasicColumn::Date, "Date", |c| c.width_percent(20))
-                .column(BasicColumn::BankBalance, "Balance", |c| c.width_percent(20))
-                .column(BasicColumn::Income, "Income", |c| c.width_percent(20))
+                .column(BasicColumn::Name, "Name", |c| c.width_percent(20))
+                .column(BasicColumn::Total, "Available Funds", |c| c.width_percent(20))
                 .column(BasicColumn::Expenses, "Expenses", |c| c.width_percent(20))
                 .column(BasicColumn::Net, "Net", |c| c.width_percent(20))
                 .items(ledger_displays)
@@ -158,23 +168,7 @@ fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
             .title(title)
             .button(button_label, move |s| {
                 if is_duplicating {
-                    let date_str = s.call_on_name("date_input", |v: &mut EditView| {
-                        v.get_content()
-                    }).unwrap();
-
-                    let parsed_date = NaiveDate::parse_from_str(&date_str, "%d/%m/%Y");
-
-                    if parsed_date.is_err() {
-                        s.add_layer(Dialog::info("Invalid date format. Use DD/MM/YYYY"));
-                        return;
-                    }
-
-                    let new_ledger = models::NewLedger {
-                        date: parsed_date.unwrap(),
-                        bank_balance: existing.as_ref().unwrap().bank_balance.clone(),
-                    };
-
-                    duplicate_ledger(s, existing.clone(), new_ledger);
+                    duplicate_ledger(s, existing.clone());
                 }
                 else {
                     add_ledger(s);
@@ -185,6 +179,7 @@ fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
             .content(
                 ListView::new()
                     .child("Date (DD/MM/YYYY)", EditView::new().content(ledger_date).with_name("date_input").fixed_width(20))
+                    .child("Name", EditView::new().with_name("ledger_name").fixed_width(20))
             )
     );
 }
@@ -198,12 +193,22 @@ fn view_ledger_detail(siv: &mut Cursive) {
         crate::ledger_detail::show_ledger_detail(siv, ledger.id);
     }
 }
-fn add_ledger(s: &mut Cursive) {
+
+fn get_form_values(s: &mut Cursive) -> (ParseResult<NaiveDate>, String) {
     let date_str = s.call_on_name("date_input", |v: &mut EditView| {
         v.get_content()
     }).unwrap();
 
     let parsed_date = NaiveDate::parse_from_str(&date_str, "%d/%m/%Y");
+
+    let ledger_name = s.call_on_name("ledger_name", |v: &mut EditView| {
+        v.get_content()
+    }).unwrap();
+
+    (parsed_date, ledger_name.to_string())
+}
+fn add_ledger(s: &mut Cursive) {
+    let (parsed_date, ledger_name) = get_form_values(s);
 
     if parsed_date.is_err() {
         s.add_layer(Dialog::info("Invalid date format. Use DD/MM/YYYY"));
@@ -213,6 +218,7 @@ fn add_ledger(s: &mut Cursive) {
     let mut conn = establish_connection();
     let new_ledger = models::NewLedger {
         date: parsed_date.unwrap(),
+        name: ledger_name.to_string(),
         bank_balance: BigDecimal::from(0),
     };
 
@@ -240,9 +246,26 @@ fn add_ledger(s: &mut Cursive) {
     toggle_buttons_visible(s, ledger_count, TOGGLE_BUTTONS);
 }
 
-fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>, new_ledger: models::NewLedger) {
+fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
 
     if let Some(ledger) = selected {
+        let (parsed_date, ledger_name) = get_form_values(s);
+
+        if parsed_date.is_err() {
+            s.add_layer(Dialog::info("Invalid date format. Use DD/MM/YYYY"));
+            return;
+        }
+
+        if ledger_name.trim().is_empty() {
+            s.add_layer(Dialog::info("Ledger name cannot be empty or whitespace."));
+            return;
+        }
+        let new_ledger = models::NewLedger {
+            date: parsed_date.unwrap(),
+            name: ledger_name,
+            bank_balance: ledger.bank_balance,
+        };
+
         let mut conn = establish_connection();
 
         let new_ledger_record: models::Ledger = diesel::insert_into(ledgers)
