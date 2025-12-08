@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use bigdecimal::BigDecimal;
-use chrono::{Local, NaiveDate, ParseResult};
+use chrono::{Datelike, Local, NaiveDate, ParseResult};
 use cursive::Cursive;
 use cursive::traits::*;
 use cursive::views::{Button, Dialog, EditView, HideableView, LinearLayout, ListView, Panel};
@@ -289,11 +289,16 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
                 .first::<models::Bill>(&mut conn)
                 .expect("Error loading bill");
 
+            // Update due_day to new ledger's month if it exists
+            let updated_due_day = old_bill.due_day.map(|old_date| {
+                new_ledger_record.date.with_day(old_date.day()).unwrap_or(new_ledger_record.date)
+            });
+
             let new_ledger_bill = models::NewLedgerBill {
                 ledger_id: new_ledger_record.id,
                 bill_id: old_bill.bill_id,
                 amount: old_bill.amount,
-                due_day: old_bill.due_day,
+                due_day: updated_due_day,
                 is_payed: bill.is_auto_pay,
             };
 
