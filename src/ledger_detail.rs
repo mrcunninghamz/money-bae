@@ -159,10 +159,10 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
 
     // Create bills table
     let bills_table = TableView::<LedgerBillDisplay, BillColumn>::new()
-        .column(BillColumn::Name, "Bill", |c| c.width_percent(35))
-        .column(BillColumn::Amount, "Amount", |c| c.width_percent(25))
-        .column(BillColumn::DueDay, "Due", |c| c.width_percent(25))
-        .column(BillColumn::Paid, "✓", |c| c.width_percent(15))
+        .column(BillColumn::Name, "Bill", |c| c)
+        .column(BillColumn::Amount, "Amount", |c| c.width(16))
+        .column(BillColumn::DueDay, "Due", |c| c.width(10))
+        .column(BillColumn::Paid, "✓", |c| c.width(6))
         .items(bill_displays)
         .with_name("bills_table")
         .min_size((40, 15));
@@ -178,8 +178,8 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
 
     // Create summary text with two-column bill breakdown
     let summary_text = format!(
-        "Bank Balance: ${}\n
-         Income: ${} ({} items)\n\n\
+        "Bank Balance: ${}\n\
+         Income: ${} ({} items)\n\
          Available Funds: ${}\n\n\
          BILLS         PLANNED     PAID\n\
          ─────────────────────────────\n\
