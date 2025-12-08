@@ -263,7 +263,7 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
         let new_ledger = models::NewLedger {
             date: parsed_date.unwrap(),
             name: ledger_name,
-            bank_balance: ledger.bank_balance,
+            bank_balance: BigDecimal::from(0),
         };
 
         let mut conn = establish_connection();
