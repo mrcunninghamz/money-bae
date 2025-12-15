@@ -9,6 +9,9 @@ mod ledger_table;
 mod ledger_detail;
 mod common_layout;
 mod ui_helpers;
+mod pto_logic;
+mod pto_table;
+mod pto_detail;
 
 use cursive::Cursive;
 use cursive::theme::{BorderStyle, Palette};
@@ -120,6 +123,7 @@ fn main() {
     siv.add_global_callback('i', |s| show_income_table(s));
     siv.add_global_callback('b', |s| show_bill_table(s));
     siv.add_global_callback('l', |s| show_ledger_table(s));
+    siv.add_global_callback('p', |s| show_pto_view(s));
 
 
     let main_menu = common_layout::create_screen(
@@ -149,6 +153,11 @@ fn show_ledger_table(siv: &mut Cursive) {
     let ledger_table = ledger_table::LedgerTableView::new();
 
     ledger_table.add_table(siv);
+}
+
+fn show_pto_view(siv: &mut Cursive) {
+    siv.pop_layer();
+    pto_table::show_pto_table_view(siv);
 }
 
 fn clear(siv: &mut Cursive){
