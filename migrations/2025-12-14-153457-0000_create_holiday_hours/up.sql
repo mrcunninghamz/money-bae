@@ -1,0 +1,8 @@
+CREATE TABLE holiday_hours (
+    id SERIAL PRIMARY KEY,
+    pto_id INTEGER NOT NULL REFERENCES ptos(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    name VARCHAR NOT NULL,
+    hours NUMERIC(10, 2) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);

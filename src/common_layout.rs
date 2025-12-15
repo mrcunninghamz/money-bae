@@ -11,7 +11,7 @@ pub fn create_screen<V: View>(title: &str, content: V, footer_hint: &str) -> imp
 
 /// Standard footer hints
 pub fn standard_footer() -> String {
-    "q:Quit | h:Home | i:Income | b:Bills | l:Ledger".to_string()
+    "q:Quit | h:Home | i:Income | b:Bills | l:Ledger | p:PTO".to_string()
 }
 
 pub fn view_footer() -> String {

@@ -12,6 +12,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    holiday_hours (id) {
+        id -> Int4,
+        pto_id -> Int4,
+        date -> Date,
+        name -> Varchar,
+        hours -> Numeric,
+        created_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     incomes (id) {
         id -> Int4,
         date -> Date,
@@ -48,8 +59,47 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    pto_plan (id) {
+        id -> Int4,
+        pto_id -> Int4,
+        start_date -> Date,
+        end_date -> Date,
+        name -> Varchar,
+        description -> Nullable<Text>,
+        hours -> Numeric,
+        status -> Varchar,
+        custom_hours -> Bool,
+        created_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    ptos (id) {
+        id -> Int4,
+        year -> Int4,
+        prev_year_hours -> Numeric,
+        available_hours -> Numeric,
+        hours_planned -> Numeric,
+        hours_used -> Numeric,
+        hours_remaining -> Numeric,
+        rollover_hours -> Bool,
+        created_at -> Timestamp,
+    }
+}
+
+diesel::joinable!(holiday_hours -> ptos (pto_id));
 diesel::joinable!(incomes -> ledgers (ledger_id));
 diesel::joinable!(ledger_bills -> bills (bill_id));
 diesel::joinable!(ledger_bills -> ledgers (ledger_id));
+diesel::joinable!(pto_plan -> ptos (pto_id));
 
-diesel::allow_tables_to_appear_in_same_query!(bills, incomes, ledger_bills, ledgers,);
+diesel::allow_tables_to_appear_in_same_query!(
+    bills,
+    holiday_hours,
+    incomes,
+    ledger_bills,
+    ledgers,
+    pto_plan,
+    ptos,
+);
