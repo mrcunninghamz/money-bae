@@ -238,7 +238,13 @@ pub fn show_pto_detail(siv: &mut Cursive, pto_id: i32) {
         .child(Panel::new(left_col).title("Planned PTO").full_width())
         .child(Panel::new(right_col).title("Holiday Hours & Summary").full_width());
 
-    siv.add_layer(Dialog::around(layout).title(format!("PTO Detail - {}", pto.year)).full_screen());
+    let screen = crate::common_layout::create_screen(
+        &format!("PTO Detail - {}", pto.year),
+        layout,
+        &crate::common_layout::view_footer()
+    );
+
+    siv.add_layer(screen);
 }
 
 fn view_plan_description(siv: &mut Cursive) {
