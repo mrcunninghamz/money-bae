@@ -109,7 +109,13 @@ pub fn show_pto_table_view(siv: &mut Cursive) {
         .child(table_view)
         .child(buttons);
 
-    siv.add_layer(layout);
+    let screen = crate::common_layout::create_screen(
+        "PTO Records",
+        layout,
+        &crate::common_layout::view_footer()
+    );
+
+    siv.add_layer(screen);
 }
 
 fn show_add_pto_dialog(siv: &mut Cursive) {
