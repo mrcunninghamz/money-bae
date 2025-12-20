@@ -3,7 +3,7 @@ use bigdecimal::BigDecimal;
 use chrono::{Datelike, NaiveDate};
 use cursive::Cursive;
 use cursive::traits::*;
-use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, SelectView, TextView};
+use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, SelectView, TextArea, TextView};
 use cursive_table_view::{TableView, TableViewItem};
 use diesel::prelude::*;
 
@@ -499,10 +499,10 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
             .child("Paid", Checkbox::new()
                 .with_checked(bill.is_payed)
                 .with_name("edit_bill_paid"))
-            .child("Notes", EditView::new()
+            .child("Notes", TextArea::new()
                 .content(bill.notes.clone().unwrap_or_default())
                 .with_name("edit_bill_notes")
-                .fixed_width(40));
+                .min_size((40, 3)));
 
         siv.add_layer(
             Dialog::around(form)
@@ -520,8 +520,8 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
                         v.is_checked()
                     }).unwrap();
                     
-                    let notes_str = s.call_on_name("edit_bill_notes", |v: &mut EditView| {
-                        v.get_content()
+                    let notes_str = s.call_on_name("edit_bill_notes", |v: &mut TextArea| {
+                        v.get_content().to_string()
                     }).unwrap();
 
                     // Parse amount
@@ -596,10 +596,10 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
                     .content(current_balance)
                     .with_name("bank_balance_input")
                     .fixed_width(20))
-                .child("Notes", EditView::new()
+                .child("Notes", TextArea::new()
                     .content(notes)
                     .with_name("ledger_notes_input")
-                    .fixed_width(40))
+                    .min_size((40, 3)))
         )
         .title("Update Ledger")
         .button("Update", move |s| {
@@ -615,8 +615,8 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
                 v.get_content()
             }).unwrap();
             
-            let notes_str = s.call_on_name("ledger_notes_input", |v: &mut EditView| {
-                v.get_content()
+            let notes_str = s.call_on_name("ledger_notes_input", |v: &mut TextArea| {
+                v.get_content().to_string()
             }).unwrap();
 
             let parsed_date = NaiveDate::parse_from_str(&date, "%d/%m/%Y");

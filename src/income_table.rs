@@ -4,7 +4,7 @@ use bigdecimal::BigDecimal;
 use chrono::{Local, NaiveDate};
 use cursive::Cursive;
 use cursive::traits::*;
-use cursive::views::{Button, Dialog, EditView, HideableView, LinearLayout, ListView, Panel};
+use cursive::views::{Button, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, TextArea};
 use cursive_table_view::{TableView, TableViewItem};
 use diesel::prelude::*;
 
@@ -160,8 +160,8 @@ fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>) {
                     v.get_content()
                 }).unwrap();
 
-                let notes_str = s.call_on_name("notes_input", |v: &mut EditView| {
-                    v.get_content()
+                let notes_str = s.call_on_name("notes_input", |v: &mut TextArea| {
+                    v.get_content().to_string()
                 }).unwrap();
 
                 // Validate date format DD/MM/YYYY
@@ -227,7 +227,7 @@ fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>) {
                 ListView::new()
                     .child("Date (DD/MM/YYYY)", EditView::new().content(date_value).with_name("date_input").fixed_width(20))
                     .child("Amount", EditView::new().content(amount_value).with_name("amount_input").fixed_width(20))
-                    .child("Notes", EditView::new().content(notes_value).with_name("notes_input").fixed_width(40))
+                    .child("Notes", TextArea::new().content(notes_value).with_name("notes_input").min_size((40, 3)))
             )
     );
 }

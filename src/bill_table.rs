@@ -4,7 +4,7 @@ use bigdecimal::BigDecimal;
 use chrono::{Datelike, Local, NaiveDate};
 use cursive::Cursive;
 use cursive::traits::*;
-use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLayout, ListView, Panel};
+use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, TextArea};
 use cursive_table_view::{TableView, TableViewItem};
 use diesel::prelude::*;
 use crate::db::establish_connection;
@@ -186,8 +186,8 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
                     v.is_checked()
                 }).unwrap();
                 
-                let notes_str = s.call_on_name("notes_input", |v: &mut EditView| {
-                    v.get_content()
+                let notes_str = s.call_on_name("notes_input", |v: &mut TextArea| {
+                    v.get_content().to_string()
                 }).unwrap();
 
                 // Validate name
@@ -279,7 +279,7 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
                         }
                         cb.with_name("auto_pay_checkbox")
                     })
-                    .child("Notes", EditView::new().content(notes_value).with_name("notes_input").fixed_width(40))
+                    .child("Notes", TextArea::new().content(notes_value).with_name("notes_input").min_size((40, 3)))
             )
     );
 }
