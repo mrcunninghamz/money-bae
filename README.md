@@ -11,6 +11,13 @@ Terminal UI personal finance tracker built with Rust.
   - Income vs. expenses analysis
   - Bill payment planning
   - Net balance calculations
+- **PTO Tracking**: Manage paid time off with:
+  - Annual PTO hour allocation
+  - Time off planning with status tracking (Planned/Requested/Approved/Completed)
+  - Holiday calendar management per year
+  - Auto-calculation of workday hours (M-F, 8hrs/day) with holiday deductions
+  - Planned vs. used hour tracking
+  - Copy holidays from previous years
 - **Interactive TUI**: Clean terminal interface with table views and forms
 
 ## Tech Stack
@@ -129,6 +136,7 @@ tail -f ~/.money-bae.log
 - `i` - Income table
 - `b` - Bills table
 - `l` - Ledger table
+- `p` - PTO management
 
 ### Bills
 - Add/Edit/Delete bills
@@ -147,12 +155,25 @@ tail -f ~/.money-bae.log
 - View planned vs. paid bill breakdown
 - Calculate net balance
 
+### PTO Management
+- Create annual PTO records with available hours
+- Plan time off entries with date ranges
+- Track status transitions: Planned → Requested → Approved → Completed
+- Automatic workday hour calculation (excludes weekends)
+- Holiday hour tracking per year
+- Hours auto-calculated when holidays defined, or manual override
+- View planned, used, and remaining hours per year
+- Copy holiday calendar from previous year
+
 ## Database Schema
 
 - `bills` - Recurring bill templates
 - `incomes` - Income entries (assignable to ledgers)
 - `ledgers` - Monthly financial snapshots
 - `ledger_bills` - Bill instances in specific ledgers
+- `ptos` - Annual PTO records with hour allocations
+- `pto_plan` - Planned time off entries with date ranges and status
+- `holiday_hours` - Holiday calendar entries per PTO year
 
 ## Development
 
