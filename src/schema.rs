@@ -8,6 +8,7 @@ diesel::table! {
         due_day -> Nullable<Date>,
         is_auto_pay -> Bool,
         created_at -> Timestamp,
+        notes -> Nullable<Text>,
     }
 }
 
@@ -29,6 +30,7 @@ diesel::table! {
         amount -> Numeric,
         created_at -> Timestamp,
         ledger_id -> Nullable<Int4>,
+        notes -> Nullable<Text>,
     }
 }
 
@@ -41,6 +43,7 @@ diesel::table! {
         due_day -> Nullable<Date>,
         is_payed -> Bool,
         created_at -> Timestamp,
+        notes -> Nullable<Text>,
     }
 }
 
@@ -56,6 +59,7 @@ diesel::table! {
         #[max_length = 255]
         name -> Nullable<Varchar>,
         total -> Nullable<Numeric>,
+        notes -> Nullable<Text>,
     }
 }
 

@@ -60,6 +60,7 @@ pub struct Income {
     pub amount: BigDecimal,
     pub created_at: chrono::NaiveDateTime,
     pub ledger_id: Option<i32>,
+    pub notes: Option<String>,
 }
 
 #[derive(Insertable)]
@@ -67,6 +68,7 @@ pub struct Income {
 pub struct NewIncome {
     pub date: NaiveDate,
     pub amount: BigDecimal,
+    pub notes: Option<String>,
 }
 
 #[derive(Queryable, Selectable, Clone, Debug)]
@@ -79,6 +81,7 @@ pub struct Bill {
     pub due_day: Option<NaiveDate>,
     pub is_auto_pay: bool,
     pub created_at: chrono::NaiveDateTime,
+    pub notes: Option<String>,
 }
 
 #[derive(Insertable)]
@@ -88,6 +91,7 @@ pub struct NewBill {
     pub amount: BigDecimal,
     pub due_day: Option<NaiveDate>,
     pub is_auto_pay: bool,
+    pub notes: Option<String>,
 }
 
 #[derive(Queryable, Selectable, Clone, Debug)]
@@ -103,6 +107,7 @@ pub struct Ledger {
     pub created_at: chrono::NaiveDateTime,
     pub name: Option<String>,
     pub total: Option<BigDecimal>,
+    pub notes: Option<String>,
 }
 
 #[derive(Insertable)]
@@ -111,6 +116,7 @@ pub struct NewLedger {
     pub date: NaiveDate,
     pub name: String,
     pub bank_balance: BigDecimal,
+    pub notes: Option<String>,
 }
 
 #[derive(Queryable, Selectable, Clone, Debug)]
@@ -124,6 +130,7 @@ pub struct LedgerBill {
     pub due_day: Option<NaiveDate>,
     pub is_payed: bool,
     pub created_at: chrono::NaiveDateTime,
+    pub notes: Option<String>,
 }
 
 #[derive(Insertable)]
@@ -134,6 +141,7 @@ pub struct NewLedgerBill {
     pub amount: BigDecimal,
     pub due_day: Option<NaiveDate>,
     pub is_payed: bool,
+    pub notes: Option<String>,
 }
 
 #[derive(Queryable, Selectable, Clone, Debug)]

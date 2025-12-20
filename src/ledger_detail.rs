@@ -3,7 +3,7 @@ use bigdecimal::BigDecimal;
 use chrono::{Datelike, NaiveDate};
 use cursive::Cursive;
 use cursive::traits::*;
-use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, SelectView, TextView};
+use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, SelectView, TextArea, TextView};
 use cursive_table_view::{TableView, TableViewItem};
 use diesel::prelude::*;
 
@@ -43,6 +43,7 @@ struct LedgerBillDisplay {
     amount: BigDecimal,
     due_day: String,
     is_payed: bool,
+    notes: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -121,6 +122,7 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
             amount: lb.amount.clone(),
             due_day: lb.due_day.map_or("-".to_string(), |d| d.format("%d/%m").to_string()),
             is_payed: lb.is_payed,
+            notes: lb.notes,
         })
         .collect();
 
@@ -177,6 +179,16 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
         .scrollable();
 
     // Create summary text with two-column bill breakdown
+    let notes_section = if let Some(ref notes_text) = ledger.notes {
+        if !notes_text.is_empty() {
+            format!("\nNotes: {}\n", notes_text)
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+    
     let summary_text = format!(
         "Bank Balance: ${}\n\
          Income: ${} ({} items)\n\
@@ -187,7 +199,8 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
          Count         {}          {}\n\n\
          Total Expenses: ${}\n\n\
          ───────────────────────────────\n\
-         Net: ${}\n\n",
+         Net: ${}\n\
+         {}",
         ledger.bank_balance,
         ledger.income,
         income_count,
@@ -197,7 +210,8 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
         unpaid_bills_count,
         paid_bills_count,
         ledger.expenses,
-        ledger.net.unwrap_or(BigDecimal::from(0))
+        ledger.net.unwrap_or(BigDecimal::from(0)),
+        notes_section
     );
 
     // Create income section with buttons
@@ -484,7 +498,11 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
                 .fixed_width(20))
             .child("Paid", Checkbox::new()
                 .with_checked(bill.is_payed)
-                .with_name("edit_bill_paid"));
+                .with_name("edit_bill_paid"))
+            .child("Notes", TextArea::new()
+                .content(bill.notes.clone().unwrap_or_default())
+                .with_name("edit_bill_notes")
+                .min_size((40, 3)));
 
         siv.add_layer(
             Dialog::around(form)
@@ -500,6 +518,10 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
 
                     let is_paid = s.call_on_name("edit_bill_paid", |v: &mut Checkbox| {
                         v.is_checked()
+                    }).unwrap();
+                    
+                    let notes_str = s.call_on_name("edit_bill_notes", |v: &mut TextArea| {
+                        v.get_content().to_string()
                     }).unwrap();
 
                     // Parse amount
@@ -532,6 +554,7 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
                             schema::ledger_bills::amount.eq(amount),
                             schema::ledger_bills::due_day.eq(due_day),
                             schema::ledger_bills::is_payed.eq(is_paid),
+                            schema::ledger_bills::notes.eq(if notes_str.is_empty() { None } else { Some(notes_str.to_string()) }),
                         ))
                         .execute(&mut conn)
                         .expect("Error updating ledger bill");
@@ -555,6 +578,7 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
     let current_balance = ledger.bank_balance.to_string();
     let name = ledger.name.unwrap_or_default();
     let date = ledger.date;
+    let notes = ledger.notes.unwrap_or_default();
 
     siv.add_layer(
         Dialog::around(
@@ -572,6 +596,10 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
                     .content(current_balance)
                     .with_name("bank_balance_input")
                     .fixed_width(20))
+                .child("Notes", TextArea::new()
+                    .content(notes)
+                    .with_name("ledger_notes_input")
+                    .min_size((40, 3)))
         )
         .title("Update Ledger")
         .button("Update", move |s| {
@@ -585,6 +613,10 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
 
             let date = s.call_on_name("ledger_date_input", |v: &mut EditView| {
                 v.get_content()
+            }).unwrap();
+            
+            let notes_str = s.call_on_name("ledger_notes_input", |v: &mut TextArea| {
+                v.get_content().to_string()
             }).unwrap();
 
             let parsed_date = NaiveDate::parse_from_str(&date, "%d/%m/%Y");
@@ -609,6 +641,7 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
                     schema::ledgers::bank_balance.eq(balance.unwrap()),
                     schema::ledgers::date.eq(parsed_date.unwrap()),
                     schema::ledgers::name.eq(name),
+                    schema::ledgers::notes.eq(if notes_str.is_empty() { None } else { Some(notes_str.to_string()) }),
                 ))
                 .execute(&mut conn)
                 .expect("Error updating ledger");

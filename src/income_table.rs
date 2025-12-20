@@ -4,7 +4,7 @@ use bigdecimal::BigDecimal;
 use chrono::{Local, NaiveDate};
 use cursive::Cursive;
 use cursive::traits::*;
-use cursive::views::{Button, Dialog, EditView, HideableView, LinearLayout, ListView, Panel};
+use cursive::views::{Button, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, TextArea};
 use cursive_table_view::{TableView, TableViewItem};
 use diesel::prelude::*;
 
@@ -30,6 +30,7 @@ struct IncomeDisplay {
     id: i32,
     date: NaiveDate,
     amount: BigDecimal,
+    notes: Option<String>,
 }
 
 impl From<models::Income> for IncomeDisplay {
@@ -38,6 +39,7 @@ impl From<models::Income> for IncomeDisplay {
             id: income.id,
             date: income.date,
             amount: income.amount,
+            notes: income.notes,
         }
     }
 }
@@ -138,6 +140,11 @@ fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>) {
         .as_ref()
         .map(|i| i.amount.to_string())
         .unwrap_or_default();
+    
+    let notes_value = existing
+        .as_ref()
+        .and_then(|i| i.notes.clone())
+        .unwrap_or_default();
 
     let income_id = existing.map(|i| i.id);
 
@@ -151,6 +158,10 @@ fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>) {
 
                 let amount_str = s.call_on_name("amount_input", |v: &mut EditView| {
                     v.get_content()
+                }).unwrap();
+
+                let notes_str = s.call_on_name("notes_input", |v: &mut TextArea| {
+                    v.get_content().to_string()
                 }).unwrap();
 
                 // Validate date format DD/MM/YYYY
@@ -175,6 +186,7 @@ fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>) {
                         .set((
                             date.eq(parsed_date.unwrap()),
                             amount.eq(amount_bd.unwrap()),
+                            notes.eq(if notes_str.is_empty() { None } else { Some(notes_str.to_string()) }),
                         ))
                         .execute(&mut conn)
                         .expect("Error updating income");
@@ -183,6 +195,7 @@ fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>) {
                     let new_income = models::NewIncome {
                         date: parsed_date.unwrap(),
                         amount: amount_bd.unwrap(),
+                        notes: if notes_str.is_empty() { None } else { Some(notes_str.to_string()) },
                     };
 
                     diesel::insert_into(incomes)
@@ -214,6 +227,7 @@ fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>) {
                 ListView::new()
                     .child("Date (DD/MM/YYYY)", EditView::new().content(date_value).with_name("date_input").fixed_width(20))
                     .child("Amount", EditView::new().content(amount_value).with_name("amount_input").fixed_width(20))
+                    .child("Notes", TextArea::new().content(notes_value).with_name("notes_input").min_size((40, 3)))
             )
     );
 }
@@ -269,6 +283,7 @@ fn duplicate_income(siv: &mut Cursive) {
         let new_income = models::NewIncome {
             date: Local::now().date_naive(),
             amount: income.amount,
+            notes: None,
         };
 
         diesel::insert_into(incomes)
