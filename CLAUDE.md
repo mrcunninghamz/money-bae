@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-money-bae: Terminal UI personal finance tracker built with Rust using the Cursive TUI library. Tracks income and bills through an interactive ncurses-based interface.
+money-bae: Terminal UI personal finance tracker built with Rust using the Cursive TUI library. Tracks income, bills, ledgers, and PTO through an interactive ncurses-based interface.
 
 ## Environment Setup
 
@@ -106,6 +106,11 @@ When ready to release a new version:
 ### Core Structure
 - `src/main.rs`: Application entry point, sets up Cursive instance with custom retro theme, defines global key bindings
 - `src/income_table.rs`: Income tracking module with table view implementation
+- `src/bill_table.rs`: Bill management module
+- `src/ledger_table.rs`: Ledger (monthly snapshot) management module
+- `src/pto_table.rs`: PTO records table (annual allocations)
+- `src/pto_detail.rs`: PTO detail view (planning + holiday management)
+- `src/pto_logic.rs`: PTO hour calculation logic
 
 ### Key Components
 
@@ -114,15 +119,40 @@ When ready to release a new version:
 - Global keybindings:
   - `q`: Quit application
   - `c`: Clear current view, return to main menu
-  - `i`: Show income table view
+  - `i`: Income table view
+  - `b`: Bills table view
+  - `l`: Ledger table view
+  - `p`: PTO table view
 - Uses layer-based view system for navigation
 
 **Income Table (income_table.rs)**
-- `IncomeTableView`: Wrapper managing income data and table view
-- `Income` struct: Date + amount storage, implements `TableViewItem<BasicColumn>` for table integration
-- Two-column layout: Date (40% width) | Amount (60% width)
-- Table sorting/comparison by date or amount
-- Form-based income entry (WIP: form functionality incomplete)
+- Table view for income entries (date + amount)
+- Add/Edit/Delete operations
+- Income can be assigned to ledgers for planning
+
+**Bill Table (bill_table.rs)**
+- Recurring bill templates with due dates, amounts
+- Auto-pay flag for bills paid automatically
+- Bills instantiated into ledgers for monthly tracking
+
+**Ledger Table (ledger_table.rs)**
+- Monthly financial snapshots
+- Tracks bank balance, income assignments, bill payments
+- Shows planned vs. paid breakdown, net balance
+
+**PTO Management (pto_table.rs + pto_detail.rs + pto_logic.rs)**
+- **PTO Table**: Annual PTO records (year, available hours, planned, used, remaining)
+- **PTO Detail**: Two-panel view:
+  - **Left panel**: Planned PTO entries (date ranges, status, hours)
+  - **Right panel**: Holiday hours calendar
+- **Status lifecycle**: Planned → Requested → Approved → Completed
+- **Auto-calculation** (pto_logic.rs):
+  - Counts M-F as 8-hour workdays
+  - Excludes weekends
+  - Subtracts holiday hours from range
+  - If no holidays defined, uses manual hours entry
+- **Database triggers**: Auto-update `hours_planned`, `hours_used`, `hours_remaining` on `pto_plan` changes
+- **Holiday copying**: Copy previous year's holidays to new year with date shift
 
 ### Data Flow
 1. User presses keybinding → triggers global callback in main.rs
@@ -141,10 +171,20 @@ Uses Rust 2024 edition (Cargo.toml:4). Requires recent Rust toolchain.
 ### Dependencies
 - `cursive`: TUI framework with ncurses backend
 - `cursive_table_view`: Table view widget extension
-- `chrono`: Date/time handling for income records
+- `chrono`: Date/time handling
+- `diesel`: PostgreSQL ORM
+- `bigdecimal`: Precise monetary/hour calculations
 
-### Known Issues
-Income form (income_table.rs:70-86) doesn't actually add income records. Form closes on "Ok" but doesn't capture/process input data.
+### Database Schema
+- `bills`: Recurring bill templates
+- `incomes`: Income entries
+- `ledgers`: Monthly financial snapshots
+- `ledger_bills`: Bill instances in ledgers (many-to-many)
+- `ptos`: Annual PTO records (aggregated hours)
+- `pto_plan`: Planned time off entries (date ranges, status)
+- `holiday_hours`: Holiday calendar per PTO year
+
+**PTO Database Triggers**: `pto_plan` insert/update/delete automatically recalculates `ptos` aggregates (hours_planned, hours_used, hours_remaining) via PostgreSQL triggers.
 
 ## Development Workflow
 
