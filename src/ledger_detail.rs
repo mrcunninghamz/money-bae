@@ -179,6 +179,16 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
         .scrollable();
 
     // Create summary text with two-column bill breakdown
+    let notes_section = if let Some(ref notes_text) = ledger.notes {
+        if !notes_text.is_empty() {
+            format!("\nNotes: {}\n", notes_text)
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+    
     let summary_text = format!(
         "Bank Balance: ${}\n\
          Income: ${} ({} items)\n\
@@ -189,7 +199,8 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
          Count         {}          {}\n\n\
          Total Expenses: ${}\n\n\
          ───────────────────────────────\n\
-         Net: ${}\n\n",
+         Net: ${}\n\
+         {}",
         ledger.bank_balance,
         ledger.income,
         income_count,
@@ -199,7 +210,8 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
         unpaid_bills_count,
         paid_bills_count,
         ledger.expenses,
-        ledger.net.unwrap_or(BigDecimal::from(0))
+        ledger.net.unwrap_or(BigDecimal::from(0)),
+        notes_section
     );
 
     // Create income section with buttons
@@ -566,6 +578,7 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
     let current_balance = ledger.bank_balance.to_string();
     let name = ledger.name.unwrap_or_default();
     let date = ledger.date;
+    let notes = ledger.notes.unwrap_or_default();
 
     siv.add_layer(
         Dialog::around(
@@ -583,6 +596,10 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
                     .content(current_balance)
                     .with_name("bank_balance_input")
                     .fixed_width(20))
+                .child("Notes", EditView::new()
+                    .content(notes)
+                    .with_name("ledger_notes_input")
+                    .fixed_width(40))
         )
         .title("Update Ledger")
         .button("Update", move |s| {
@@ -595,6 +612,10 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
             }).unwrap().to_string();
 
             let date = s.call_on_name("ledger_date_input", |v: &mut EditView| {
+                v.get_content()
+            }).unwrap();
+            
+            let notes_str = s.call_on_name("ledger_notes_input", |v: &mut EditView| {
                 v.get_content()
             }).unwrap();
 
@@ -620,6 +641,7 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
                     schema::ledgers::bank_balance.eq(balance.unwrap()),
                     schema::ledgers::date.eq(parsed_date.unwrap()),
                     schema::ledgers::name.eq(name),
+                    schema::ledgers::notes.eq(if notes_str.is_empty() { None } else { Some(notes_str.to_string()) }),
                 ))
                 .execute(&mut conn)
                 .expect("Error updating ledger");
