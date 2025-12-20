@@ -1,0 +1,5 @@
+ALTER TABLE incomes ADD COLUMN notes TEXT;
+ALTER TABLE bills ADD COLUMN notes TEXT;
+ALTER TABLE ledgers ADD COLUMN notes TEXT;
+ALTER TABLE ledger_bills ADD COLUMN notes TEXT;
+

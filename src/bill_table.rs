@@ -31,7 +31,8 @@ struct BillDisplay {
     name: String,
     amount: BigDecimal,
     due_day: Option<u32>,
-    is_auto_pay: bool
+    is_auto_pay: bool,
+    notes: Option<String>,
 }
 
 impl From<models::Bill> for BillDisplay {
@@ -42,6 +43,7 @@ impl From<models::Bill> for BillDisplay {
             amount: bill.amount,
             due_day: bill.due_day.map(|d| d.day()),
             is_auto_pay: bill.is_auto_pay,
+            notes: bill.notes,
         }
     }
 }
@@ -156,6 +158,11 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
         .as_ref()
         .map(|b| b.is_auto_pay)
         .unwrap_or(false);
+    
+    let notes_value = existing
+        .as_ref()
+        .and_then(|b| b.notes.clone())
+        .unwrap_or_default();
 
     let bill_id = existing.map(|b| b.id);
 
@@ -177,6 +184,10 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
 
                 let is_auto = s.call_on_name("auto_pay_checkbox", |v: &mut Checkbox| {
                     v.is_checked()
+                }).unwrap();
+                
+                let notes_str = s.call_on_name("notes_input", |v: &mut EditView| {
+                    v.get_content()
                 }).unwrap();
 
                 // Validate name
@@ -217,6 +228,7 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
                             amount.eq(amount_bd.unwrap()),
                             due_day.eq(due_date.unwrap()),
                             is_auto_pay.eq(is_auto),
+                            notes.eq(if notes_str.is_empty() { None } else { Some(notes_str.to_string()) }),
                         ))
                         .execute(&mut conn)
                         .expect("Error updating bill");
@@ -227,6 +239,7 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
                         amount: amount_bd.unwrap(),
                         due_day: due_date,
                         is_auto_pay: is_auto,
+                        notes: if notes_str.is_empty() { None } else { Some(notes_str.to_string()) },
                     };
 
                     diesel::insert_into(bills)
@@ -266,6 +279,7 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
                         }
                         cb.with_name("auto_pay_checkbox")
                     })
+                    .child("Notes", EditView::new().content(notes_value).with_name("notes_input").fixed_width(40))
             )
     );
 }

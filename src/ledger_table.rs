@@ -39,6 +39,7 @@ struct LedgerDisplay {
     total: BigDecimal,
     expenses: BigDecimal,
     net: BigDecimal,
+    notes: Option<String>,
 }
 
 impl From<models::Ledger> for LedgerDisplay {
@@ -52,6 +53,7 @@ impl From<models::Ledger> for LedgerDisplay {
             total: ledger.total.unwrap_or(BigDecimal::from(0)),
             expenses: ledger.expenses,
             net: ledger.net.unwrap_or(BigDecimal::from(0)),
+            notes: ledger.notes,
         }
     }
 }
@@ -160,6 +162,11 @@ fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
     } else {
         Local::now().format("%d/%m/%Y").to_string()
     };
+    
+    let notes_value = existing
+        .as_ref()
+        .and_then(|l| l.notes.clone())
+        .unwrap_or_default();
 
     let button_label = if is_duplicating { "Duplicate" } else { "Ok" };
 
@@ -180,6 +187,7 @@ fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
                 ListView::new()
                     .child("Date (DD/MM/YYYY)", EditView::new().content(ledger_date).with_name("date_input").fixed_width(20))
                     .child("Name", EditView::new().with_name("ledger_name").fixed_width(20))
+                    .child("Notes", EditView::new().content(notes_value).with_name("notes_input").fixed_width(40))
             )
     );
 }
@@ -194,7 +202,7 @@ fn view_ledger_detail(siv: &mut Cursive) {
     }
 }
 
-fn get_form_values(s: &mut Cursive) -> (ParseResult<NaiveDate>, String) {
+fn get_form_values(s: &mut Cursive) -> (ParseResult<NaiveDate>, String, String) {
     let date_str = s.call_on_name("date_input", |v: &mut EditView| {
         v.get_content()
     }).unwrap();
@@ -204,11 +212,15 @@ fn get_form_values(s: &mut Cursive) -> (ParseResult<NaiveDate>, String) {
     let ledger_name = s.call_on_name("ledger_name", |v: &mut EditView| {
         v.get_content()
     }).unwrap();
+    
+    let notes_str = s.call_on_name("notes_input", |v: &mut EditView| {
+        v.get_content()
+    }).unwrap();
 
-    (parsed_date, ledger_name.to_string())
+    (parsed_date, ledger_name.to_string(), notes_str.to_string())
 }
 fn add_ledger(s: &mut Cursive) {
-    let (parsed_date, ledger_name) = get_form_values(s);
+    let (parsed_date, ledger_name, notes_str) = get_form_values(s);
 
     if parsed_date.is_err() {
         s.add_layer(Dialog::info("Invalid date format. Use DD/MM/YYYY"));
@@ -220,6 +232,7 @@ fn add_ledger(s: &mut Cursive) {
         date: parsed_date.unwrap(),
         name: ledger_name.to_string(),
         bank_balance: BigDecimal::from(0),
+        notes: if notes_str.is_empty() { None } else { Some(notes_str) },
     };
 
     diesel::insert_into(ledgers)
@@ -249,7 +262,7 @@ fn add_ledger(s: &mut Cursive) {
 fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
 
     if let Some(ledger) = selected {
-        let (parsed_date, ledger_name) = get_form_values(s);
+        let (parsed_date, ledger_name, notes_str) = get_form_values(s);
 
         if parsed_date.is_err() {
             s.add_layer(Dialog::info("Invalid date format. Use DD/MM/YYYY"));
@@ -264,6 +277,7 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
             date: parsed_date.unwrap(),
             name: ledger_name,
             bank_balance: BigDecimal::from(0),
+            notes: if notes_str.is_empty() { None } else { Some(notes_str) },
         };
 
         let mut conn = establish_connection();
@@ -300,6 +314,7 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
                 amount: old_bill.amount,
                 due_day: updated_due_day,
                 is_payed: bill.is_auto_pay,
+                notes: None,
             };
 
             diesel::insert_into(ledger_bills::table)
