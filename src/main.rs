@@ -12,6 +12,8 @@ mod ui_helpers;
 mod pto_logic;
 mod pto_table;
 mod pto_detail;
+mod configuration_manager;
+mod dependecy_container;
 
 use cursive::Cursive;
 use cursive::theme::{BorderStyle, Palette};
@@ -19,10 +21,13 @@ use cursive::traits::With;
 use cursive::views::TextView;
 use simplelog::*;
 use std::fs::File;
+use crate::dependecy_container::DependencyContainer;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
+    let dc = DependencyContainer::new();
+    
     // Initialize logging to file (since TUI uses stdio)
     let log_path = std::env::var("HOME")
         .map(|h| format!("{}/.money-bae.log", h))
@@ -120,7 +125,7 @@ fn main() {
 
     siv.add_global_callback('q', |s| s.quit());
     siv.add_global_callback('h', |s| clear(s));
-    siv.add_global_callback('i', |s| show_income_table(s));
+    siv.add_global_callback('i', move |s| show_income_table(s, &dc));
     siv.add_global_callback('b', |s| show_bill_table(s));
     siv.add_global_callback('l', |s| show_ledger_table(s));
     siv.add_global_callback('p', |s| show_pto_view(s));
@@ -137,8 +142,8 @@ fn main() {
     siv.run();
 }
 
-fn show_income_table(siv: &mut Cursive) {
-    let income_table = income_table::IncomeTableView::new();
+fn show_income_table(siv: &mut Cursive, dc: &DependencyContainer) {
+    let income_table = income_table::IncomeTableView::new(dc.pg_connector());
 
     income_table.add_table(siv);
 }

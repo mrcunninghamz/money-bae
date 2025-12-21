@@ -10,7 +10,7 @@ use diesel::prelude::*;
 
 use crate::models;
 use crate::schema::incomes::dsl::*;
-use crate::db::establish_connection;
+use crate::db::{establish_connection, PgConnector};
 use crate::ui_helpers::toggle_buttons_visible;
 
 // Button name constants
@@ -68,8 +68,8 @@ pub struct IncomeTableView {
 }
 
 impl IncomeTableView {
-    pub fn new() -> Self {
-        let mut conn = establish_connection();
+    pub fn new(pg_connector: PgConnector) -> Self {
+        let mut conn = pg_connector.establish_connection();
         let results = incomes
             .load::<models::Income>(&mut conn)
             .expect("Error loading incomes");

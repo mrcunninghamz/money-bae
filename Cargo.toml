@@ -12,3 +12,5 @@ dotenvy = "0.15"
 bigdecimal = "0.4"
 log = "0.4"
 simplelog = "0.12"
+confy = "2.0.0"
+serde = { version = "1.0.228", features = ["derive"] }
