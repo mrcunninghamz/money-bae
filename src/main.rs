@@ -137,7 +137,8 @@ fn main() {
     let dc_ledger = Rc::clone(&dc);
     siv.add_global_callback('l', move |s| show_ledger_table(s, &dc_ledger));
     
-    siv.add_global_callback('p', |s| show_pto_view(s));
+    let dc_pto = Rc::clone(&dc);
+    siv.add_global_callback('p', move |s| show_pto_view(s, &dc_pto));
 
 
     let main_menu = common_layout::create_screen(
@@ -152,7 +153,7 @@ fn main() {
 }
 
 fn show_income_table(siv: &mut Cursive, dc: &DependencyContainer) {
-    let income_table = income_table::IncomeTableView::new(&dc.pg_connector());
+    let income_table = income_table::IncomeTableView::new(dc.pg_connector());
 
     income_table.add_table(siv);
 }
@@ -169,9 +170,9 @@ fn show_ledger_table(siv: &mut Cursive, dc: &DependencyContainer) {
     ledger_table.add_table(siv);
 }
 
-fn show_pto_view(siv: &mut Cursive) {
+fn show_pto_view(siv: &mut Cursive, dc: &DependencyContainer) {
     siv.pop_layer();
-    pto_table::show_pto_table_view(siv);
+    pto_table::show_pto_table_view(siv, &dc.pg_connector());
 }
 
 fn clear(siv: &mut Cursive){

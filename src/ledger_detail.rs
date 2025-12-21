@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::rc::Rc;
 use bigdecimal::BigDecimal;
 use chrono::{Datelike, NaiveDate};
 use cursive::Cursive;
@@ -9,7 +10,7 @@ use diesel::prelude::*;
 
 use crate::models;
 use crate::schema;
-use crate::db::establish_connection;
+use crate::db::PgConnector;
 use crate::ui_helpers::toggle_buttons_visible;
 
 // Button name constants
@@ -89,15 +90,15 @@ impl TableViewItem<IncomeColumn> for IncomeDisplay {
     }
 }
 
-pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
+pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32, pg_connector: &Rc<PgConnector>) {
     siv.pop_layer();
 
-    let mut conn = establish_connection();
+    let mut conn = pg_connector.get_connection();
 
     // Load ledger
     let ledger_result = schema::ledgers::table
         .find(target_ledger_id)
-        .first::<models::Ledger>(&mut conn);
+        .first::<models::Ledger>(&mut *conn);
 
     if ledger_result.is_err() {
         siv.add_layer(Dialog::info("Error loading ledger"));
@@ -110,7 +111,7 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
     let ledger_bill_data: Vec<(models::LedgerBill, models::Bill)> = schema::ledger_bills::table
         .filter(schema::ledger_bills::ledger_id.eq(target_ledger_id))
         .inner_join(schema::bills::table)
-        .load(&mut conn)
+        .load(&mut *conn)
         .unwrap_or_default();
 
     let bill_displays: Vec<LedgerBillDisplay> = ledger_bill_data
@@ -145,7 +146,7 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
     // Load incomes for this ledger
     let ledger_incomes: Vec<models::Income> = schema::incomes::table
         .filter(schema::incomes::ledger_id.eq(target_ledger_id))
-        .load(&mut conn)
+        .load(&mut *conn)
         .unwrap_or_default();
 
     let income_displays: Vec<IncomeDisplay> = ledger_incomes
@@ -215,9 +216,11 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
     );
 
     // Create income section with buttons
+    let connector_add_income = Rc::clone(pg_connector);
+    let connector_delete_income = Rc::clone(pg_connector);
     let income_buttons = LinearLayout::horizontal()
-        .child(Button::new("Add", move |s| add_income_to_ledger(s, target_ledger_id)))
-        .child(HideableView::new(Button::new("Delete", move |s| delete_income_from_ledger(s, target_ledger_id))).with_name(INCOME_DELETE_BUTTON));
+        .child(Button::new("Add", move |s| add_income_to_ledger(s, target_ledger_id, &connector_add_income)))
+        .child(HideableView::new(Button::new("Delete", move |s| delete_income_from_ledger(s, target_ledger_id, &connector_delete_income))).with_name(INCOME_DELETE_BUTTON));
 
     let income_section = LinearLayout::vertical()
         .child(income_table)
@@ -225,20 +228,25 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
         .min_height(6);
 
     // Create bills section with buttons
+    let connector_add_bill = Rc::clone(pg_connector);
+    let connector_edit_bill = Rc::clone(pg_connector);
+    let connector_toggle_bill = Rc::clone(pg_connector);
+    let connector_delete_bill = Rc::clone(pg_connector);
     let bill_buttons = LinearLayout::horizontal()
-        .child(Button::new("Add", move |s| add_bill_to_ledger(s, target_ledger_id)))
-        .child(HideableView::new(Button::new("Edit", move |s| edit_ledger_bill(s, target_ledger_id))).with_name(BILL_EDIT_BUTTON))
-        .child(HideableView::new(Button::new("Toggle Paid", move |s| toggle_bill_paid(s, target_ledger_id))).with_name(BILL_TOGGLE_PAID_BUTTON))
-        .child(HideableView::new(Button::new("Delete", move |s| delete_bill_from_ledger(s, target_ledger_id))).with_name(BILL_DELETE_BUTTON));
+        .child(Button::new("Add", move |s| add_bill_to_ledger(s, target_ledger_id, &connector_add_bill)))
+        .child(HideableView::new(Button::new("Edit", move |s| edit_ledger_bill(s, target_ledger_id, &connector_edit_bill))).with_name(BILL_EDIT_BUTTON))
+        .child(HideableView::new(Button::new("Toggle Paid", move |s| toggle_bill_paid(s, target_ledger_id, &connector_toggle_bill))).with_name(BILL_TOGGLE_PAID_BUTTON))
+        .child(HideableView::new(Button::new("Delete", move |s| delete_bill_from_ledger(s, target_ledger_id, &connector_delete_bill))).with_name(BILL_DELETE_BUTTON));
 
     let bills_section = LinearLayout::vertical()
         .child(bills_table)
         .child(bill_buttons);
 
     // Create summary section with update button
+    let connector_update = Rc::clone(pg_connector);
     let summary_content = LinearLayout::vertical()
         .child(TextView::new(summary_text))
-        .child(Button::new("Edit", move |s| update_ledger(s, target_ledger_id)));
+        .child(Button::new("Edit", move |s| update_ledger(s, target_ledger_id, &connector_update)));
 
     // Stack income and summary vertically in right column
     let right_column = LinearLayout::vertical()
@@ -265,13 +273,13 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32) {
     toggle_buttons_visible(siv, income_count, INCOME_TOGGLE_BUTTONS);
 }
 
-fn add_income_to_ledger(siv: &mut Cursive, ledger_id: i32) {
-    let mut conn = establish_connection();
+fn add_income_to_ledger(siv: &mut Cursive, ledger_id: i32, pg_connector: &Rc<PgConnector>) {
+    let mut conn = pg_connector.get_connection();
 
     // Get ledger to find its month
     let ledger = schema::ledgers::table
         .find(ledger_id)
-        .first::<models::Ledger>(&mut conn)
+        .first::<models::Ledger>(&mut *conn)
         .expect("Error loading ledger");
 
     let ledger_month = ledger.date.month();
@@ -280,7 +288,7 @@ fn add_income_to_ledger(siv: &mut Cursive, ledger_id: i32) {
     // Get unassigned incomes from the same month
     let available_incomes: Vec<models::Income> = schema::incomes::table
         .filter(schema::incomes::ledger_id.is_null())
-        .load(&mut conn)
+        .load(&mut *conn)
         .expect("Error loading incomes");
 
     let month_incomes: Vec<models::Income> = available_incomes
@@ -299,6 +307,7 @@ fn add_income_to_ledger(siv: &mut Cursive, ledger_id: i32) {
         select.add_item(label, income.id);
     }
 
+    let connector_add = Rc::clone(pg_connector);
     siv.add_layer(
         Dialog::around(select.with_name("income_select"))
             .title("Select Income to Add")
@@ -308,54 +317,55 @@ fn add_income_to_ledger(siv: &mut Cursive, ledger_id: i32) {
                 }).unwrap();
 
                 if let Some(selected_id) = income_id {
-                    let mut conn = establish_connection();
+                    let mut conn = connector_add.get_connection();
 
                     // Assign income to ledger
                     diesel::update(schema::incomes::table.find(*selected_id))
                         .set(schema::incomes::ledger_id.eq(ledger_id))
-                        .execute(&mut conn)
+                        .execute(&mut *conn)
                         .expect("Error assigning income");
 
                     s.pop_layer(); // Close dialog
-                    show_ledger_detail(s, ledger_id); // Refresh view
+                    show_ledger_detail(s, ledger_id, &connector_add); // Refresh view
                 }
             })
             .button("Cancel", |s| { s.pop_layer(); })
     );
 }
 
-fn delete_income_from_ledger(siv: &mut Cursive, ledger_id: i32) {
+fn delete_income_from_ledger(siv: &mut Cursive, ledger_id: i32, pg_connector: &Rc<PgConnector>) {
     let selected = siv.call_on_name("income_table", |v: &mut TableView<IncomeDisplay, IncomeColumn>| {
         v.borrow_item(v.item().unwrap()).cloned()
     }).flatten();
 
     if let Some(income) = selected {
+        let connector_yes = Rc::clone(pg_connector);
         siv.add_layer(
             Dialog::text("Remove this income from ledger?")
                 .button("Yes", move |s| {
-                    let mut conn = establish_connection();
+                    let mut conn = connector_yes.get_connection();
 
                     // Unassign income from ledger (set ledger_id to null)
                     diesel::update(schema::incomes::table.find(income.id))
                         .set(schema::incomes::ledger_id.eq::<Option<i32>>(None))
-                        .execute(&mut conn)
+                        .execute(&mut *conn)
                         .expect("Error removing income");
 
                     s.pop_layer(); // Close dialog
-                    show_ledger_detail(s, ledger_id); // Refresh view
+                    show_ledger_detail(s, ledger_id, &connector_yes); // Refresh view
                 })
                 .button("No", |s| { s.pop_layer(); })
         );
     }
 }
 
-fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32) {
-    let mut conn = establish_connection();
+fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32, pg_connector: &Rc<PgConnector>) {
+    let mut conn = pg_connector.get_connection();
 
     // Get ledger to find its month
     let ledger = schema::ledgers::table
         .find(ledger_id)
-        .first::<models::Ledger>(&mut conn)
+        .first::<models::Ledger>(&mut *conn)
         .expect("Error loading ledger");
 
     let ledger_month = ledger.date.month();
@@ -365,11 +375,11 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32) {
     let existing_bill_ids: Vec<i32> = schema::ledger_bills::table
         .filter(schema::ledger_bills::ledger_id.eq(ledger_id))
         .select(schema::ledger_bills::bill_id)
-        .load(&mut conn)
+        .load(&mut *conn)
         .unwrap_or_default();
 
     let mut available_bills: Vec<models::Bill> = schema::bills::table
-        .load(&mut conn)
+        .load(&mut *conn)
         .expect("Error loading bills");
 
     available_bills.retain(|b| !existing_bill_ids.contains(&b.id));
@@ -386,6 +396,7 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32) {
         select.add_item(label, (bill.id, bill.amount, bill.due_day, bill.is_auto_pay));
     }
 
+    let connector_add = Rc::clone(pg_connector);
     siv.add_layer(
         Dialog::around(select.with_name("bill_select"))
             .title("Select Bill to Add")
@@ -396,7 +407,7 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32) {
 
                 if let Some(bill_data_rc) = bill_data {
                     let (bill_id, amount, due_day, autopay) = (*bill_data_rc).clone();
-                    let mut conn = establish_connection();
+                    let mut conn = connector_add.get_connection();
 
                     // Create due_day for this ledger (use bill's day with ledger's month/year)
                     let ledger_due_day = due_day.and_then(|d| {
@@ -417,62 +428,63 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32) {
                             ledger_bills::due_day.eq(ledger_due_day),
                             ledger_bills::is_payed.eq(autopay),
                         ))
-                        .execute(&mut conn)
+                        .execute(&mut *conn)
                         .expect("Error adding bill to ledger");
 
                     s.pop_layer(); // Close dialog
-                    show_ledger_detail(s, ledger_id); // Refresh view
+                    show_ledger_detail(s, ledger_id, &connector_add); // Refresh view
                 }
             })
             .button("Cancel", |s| { s.pop_layer(); })
     );
 }
 
-fn toggle_bill_paid(siv: &mut Cursive, ledger_id: i32) {
+fn toggle_bill_paid(siv: &mut Cursive, ledger_id: i32, pg_connector: &Rc<PgConnector>) {
     let selected = siv.call_on_name("bills_table", |v: &mut TableView<LedgerBillDisplay, BillColumn>| {
         v.borrow_item(v.item().unwrap()).cloned()
     }).flatten();
 
     if let Some(bill) = selected {
-        let mut conn = establish_connection();
+        let mut conn = pg_connector.get_connection();
         let new_paid_status = !bill.is_payed;
 
         // Update is_payed status
         diesel::update(schema::ledger_bills::table.find(bill.id))
             .set(schema::ledger_bills::is_payed.eq(new_paid_status))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .expect("Error updating bill paid status");
 
         // Refresh view
-        show_ledger_detail(siv, ledger_id);
+        show_ledger_detail(siv, ledger_id, pg_connector);
     }
 }
 
-fn delete_bill_from_ledger(siv: &mut Cursive, ledger_id: i32) {
+fn delete_bill_from_ledger(siv: &mut Cursive, ledger_id: i32, pg_connector: &Rc<PgConnector>) {
     let selected = siv.call_on_name("bills_table", |v: &mut TableView<LedgerBillDisplay, BillColumn>| {
         v.borrow_item(v.item().unwrap()).cloned()
     }).flatten();
 
     if let Some(bill) = selected {
+        let connector_yes = Rc::clone(pg_connector);
         siv.add_layer(
             Dialog::text(format!("Remove '{}' from ledger?", bill.bill_name))
                 .button("Yes", move |s| {
-                    let mut conn = establish_connection();
+                    let mut conn = connector_yes.get_connection();
 
                     // Delete from ledger_bills
                     diesel::delete(schema::ledger_bills::table.find(bill.id))
-                        .execute(&mut conn)
+                        .execute(&mut *conn)
                         .expect("Error deleting bill from ledger");
 
                     s.pop_layer(); // Close dialog
-                    show_ledger_detail(s, ledger_id); // Refresh view
+                    show_ledger_detail(s, ledger_id, &connector_yes); // Refresh view
                 })
                 .button("No", |s| { s.pop_layer(); })
         );
     }
 }
 
-fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
+fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32, pg_connector: &Rc<PgConnector>) {
     let selected = siv.call_on_name("bills_table", |v: &mut TableView<LedgerBillDisplay, BillColumn>| {
         v.borrow_item(v.item().unwrap()).cloned()
     }).flatten();
@@ -481,10 +493,10 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
         let bill_id = bill.id;
 
         // Get the current bill data from database to get the actual due_day
-        let mut conn = establish_connection();
+        let mut conn = pg_connector.get_connection();
         let ledger_bill = schema::ledger_bills::table
             .find(bill_id)
-            .first::<models::LedgerBill>(&mut conn)
+            .first::<models::LedgerBill>(&mut *conn)
             .expect("Error loading ledger bill");
 
         let form = ListView::new()
@@ -504,6 +516,7 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
                 .with_name("edit_bill_notes")
                 .min_size((40, 3)));
 
+        let connector_save = Rc::clone(pg_connector);
         siv.add_layer(
             Dialog::around(form)
                 .title(format!("Edit: {}", bill.bill_name))
@@ -546,7 +559,7 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
                         }
                     };
 
-                    let mut conn = establish_connection();
+                    let mut conn = connector_save.get_connection();
 
                     // Update ledger bill
                     diesel::update(schema::ledger_bills::table.find(bill_id))
@@ -556,23 +569,23 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32) {
                             schema::ledger_bills::is_payed.eq(is_paid),
                             schema::ledger_bills::notes.eq(if notes_str.is_empty() { None } else { Some(notes_str.to_string()) }),
                         ))
-                        .execute(&mut conn)
+                        .execute(&mut *conn)
                         .expect("Error updating ledger bill");
 
                     s.pop_layer(); // Close dialog
-                    show_ledger_detail(s, ledger_id); // Refresh view
+                    show_ledger_detail(s, ledger_id, &connector_save); // Refresh view
                 })
                 .button("Cancel", |s| { s.pop_layer(); })
         );
     }
 }
-fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
-    let mut conn = establish_connection();
+fn update_ledger(siv: &mut Cursive, ledger_id: i32, pg_connector: &Rc<PgConnector>) {
+    let mut conn = pg_connector.get_connection();
 
     // Load ledger for editing
     let ledger = schema::ledgers::table
         .find(ledger_id)
-        .first::<models::Ledger>(&mut conn)
+        .first::<models::Ledger>(&mut *conn)
         .expect("Error loading ledger");
 
     let current_balance = ledger.bank_balance.to_string();
@@ -580,6 +593,7 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
     let date = ledger.date;
     let notes = ledger.notes.unwrap_or_default();
 
+    let connector_update = Rc::clone(pg_connector);
     siv.add_layer(
         Dialog::around(
 
@@ -633,7 +647,7 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
                 return;
             }
 
-            let mut conn = establish_connection();
+            let mut conn = connector_update.get_connection();
 
             // Update ledger
             diesel::update(schema::ledgers::table.find(ledger_id))
@@ -643,11 +657,11 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32) {
                     schema::ledgers::name.eq(name),
                     schema::ledgers::notes.eq(if notes_str.is_empty() { None } else { Some(notes_str.to_string()) }),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .expect("Error updating ledger");
 
             s.pop_layer(); // Close dialog
-            show_ledger_detail(s, ledger_id); // Refresh view
+            show_ledger_detail(s, ledger_id, &connector_update); // Refresh view
         })
         .button("Cancel", |s| { s.pop_layer(); })
     );

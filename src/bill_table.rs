@@ -8,7 +8,7 @@ use cursive::traits::*;
 use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, TextArea};
 use cursive_table_view::{TableView, TableViewItem};
 use diesel::prelude::*;
-use crate::db::{establish_connection, PgConnector};
+use crate::db::PgConnector;
 use crate::models;
 use crate::schema::bills::dsl::*;
 use crate::ui_helpers::toggle_buttons_visible;

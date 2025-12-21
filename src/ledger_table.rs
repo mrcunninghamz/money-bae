@@ -125,10 +125,11 @@ impl LedgerTableView {
         let connector_add = Rc::clone(&self.pg_connector);
         let connector_duplicate = Rc::clone(&self.pg_connector);
         let connector_delete = Rc::clone(&self.pg_connector);
+        let connector_view = Rc::clone(&self.pg_connector);
 
         let buttons = LinearLayout::horizontal()
             .child(Button::new("Add", move |s| add_ledger_dialog(s, None, &connector_add)))
-            .child(HideableView::new(Button::new("View", |s| view_ledger_detail(s))).with_name(LEDGER_VIEW_BUTTON))
+            .child(HideableView::new(Button::new("View", move |s| view_ledger_detail(s, &connector_view))).with_name(LEDGER_VIEW_BUTTON))
             .child(HideableView::new(Button::new("Duplicate", move |s| {
                 let selected = s.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
                     v.borrow_item(v.item().unwrap()).cloned()
@@ -203,13 +204,13 @@ fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>, pg_conn
     );
 }
 
-fn view_ledger_detail(siv: &mut Cursive) {
+fn view_ledger_detail(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
     let selected = siv.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
         v.borrow_item(v.item().unwrap()).cloned()
     }).flatten();
 
     if let Some(ledger) = selected {
-        crate::ledger_detail::show_ledger_detail(siv, ledger.id);
+        crate::ledger_detail::show_ledger_detail(siv, ledger.id, pg_connector);
     }
 }
 
