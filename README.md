@@ -116,6 +116,30 @@ git push origin v0.2.0
 cargo install --path .
 ```
 
+## Configuration
+
+Application configuration is managed using `confy` and follows the XDG Base Directory specification.
+
+### Configuration File Location
+
+| Platform | Path |
+|----------|------|
+| **Linux** | `$XDG_CONFIG_HOME/money-bae/` or `$HOME/.config/money-bae/` |
+| **macOS** | `$HOME/.config/money-bae/` |
+| **Windows** | `{FOLDERID_RoamingAppData}/money-bae/config/` |
+
+The configuration file will be automatically created on first run with default values.
+
+### Editing Configuration
+
+```bash
+# On Linux/macOS
+vi ~/.config/money-bae/money-bae.toml
+
+# View current configuration
+cat ~/.config/money-bae/money-bae.toml
+```
+
 ## Logs
 
 Application logs (including panics) are written to:
