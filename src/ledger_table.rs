@@ -231,7 +231,7 @@ fn get_form_values(s: &mut Cursive) -> (ParseResult<NaiveDate>, String, String) 
 
     (parsed_date, ledger_name.to_string(), notes_str.to_string())
 }
-fn add_ledger(s: &mut Cursive, pg_connector: &PgConnector) {
+fn add_ledger(s: &mut Cursive, pg_connector: &Rc<PgConnector>) {
     let (parsed_date, ledger_name, notes_str) = get_form_values(s);
 
     if parsed_date.is_err() {
