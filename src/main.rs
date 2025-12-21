@@ -13,7 +13,7 @@ mod pto_logic;
 mod pto_table;
 mod pto_detail;
 mod configuration_manager;
-mod dependecy_container;
+mod dependency_container;
 
 use cursive::Cursive;
 use cursive::theme::{BorderStyle, Palette};
@@ -23,7 +23,7 @@ use simplelog::*;
 use std::fs::File;
 use std::rc::Rc;
 use crate::db::PgConnector;
-use crate::dependecy_container::DependencyContainer;
+use crate::dependency_container::DependencyContainer;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
