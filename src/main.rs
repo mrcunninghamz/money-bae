@@ -4,6 +4,7 @@ mod income_table;
 mod schema;
 mod models;
 mod db;
+mod repositories;
 mod bill_table;
 mod ledger_table;
 mod ledger_detail;
@@ -12,6 +13,8 @@ mod ui_helpers;
 mod pto_logic;
 mod pto_table;
 mod pto_detail;
+mod configuration_manager;
+mod dependency_container;
 
 use cursive::Cursive;
 use cursive::theme::{BorderStyle, Palette};
@@ -19,10 +22,15 @@ use cursive::traits::With;
 use cursive::views::TextView;
 use simplelog::*;
 use std::fs::File;
+use std::rc::Rc;
+use crate::db::PgConnector;
+use crate::dependency_container::DependencyContainer;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
+    let dc = Rc::new(DependencyContainer::new());
+    
     // Initialize logging to file (since TUI uses stdio)
     let log_path = std::env::var("HOME")
         .map(|h| format!("{}/.money-bae.log", h))
@@ -60,6 +68,21 @@ fn main() {
     }));
 
     log::info!("money-bae v{} started", VERSION);
+
+    // Validate configuration before starting UI
+    let config_manager = dc.configuration_manager();
+    if config_manager.get_database_connection_string().is_none() {
+        let config_name = configuration_manager::ConfigurationManager::get_config_name();
+        eprintln!("\n❌ Configuration Error: database_connection_string not set");
+        eprintln!("\nPlease edit your {}.toml configuration file.", config_name);
+        eprintln!("(Location depends on your OS - see README or confy documentation)");
+        eprintln!("\nAdd the following line:");
+        eprintln!("  database_connection_string = \"postgres://username@localhost/database_name\"");
+        eprintln!("\nExample for development:");
+        eprintln!("  database_connection_string = \"postgres://{}@localhost/money_bae_dev\"", 
+            std::env::var("USER").unwrap_or_else(|_| "username".to_string()));
+        std::process::exit(1);
+    }
 
     // Handle CLI arguments
     let args: Vec<String> = std::env::args().collect();
@@ -120,10 +143,18 @@ fn main() {
 
     siv.add_global_callback('q', |s| s.quit());
     siv.add_global_callback('h', |s| clear(s));
-    siv.add_global_callback('i', |s| show_income_table(s));
-    siv.add_global_callback('b', |s| show_bill_table(s));
-    siv.add_global_callback('l', |s| show_ledger_table(s));
-    siv.add_global_callback('p', |s| show_pto_view(s));
+    
+    let dc_income = Rc::clone(&dc);
+    siv.add_global_callback('i', move |s| show_income_table(s, &dc_income));
+    
+    let dc_bill = Rc::clone(&dc);
+    siv.add_global_callback('b', move |s| show_bill_table(s, &dc_bill));
+    
+    let dc_ledger = Rc::clone(&dc);
+    siv.add_global_callback('l', move |s| show_ledger_table(s, &dc_ledger));
+    
+    let dc_pto = Rc::clone(&dc);
+    siv.add_global_callback('p', move |s| show_pto_view(s, &dc_pto));
 
 
     let main_menu = common_layout::create_screen(
@@ -137,27 +168,27 @@ fn main() {
     siv.run();
 }
 
-fn show_income_table(siv: &mut Cursive) {
-    let income_table = income_table::IncomeTableView::new();
+fn show_income_table(siv: &mut Cursive, dc: &DependencyContainer) {
+    let income_table = income_table::IncomeTableView::new(dc.income_repo());
 
     income_table.add_table(siv);
 }
 
-fn show_bill_table(siv: &mut Cursive) {
-    let bill_table = bill_table::BillTableView::new();
+fn show_bill_table(siv: &mut Cursive, dc: &DependencyContainer) {
+    let bill_table = bill_table::BillTableView::new(dc.bill_repo());
 
     bill_table.add_table(siv);
 }
 
-fn show_ledger_table(siv: &mut Cursive) {
-    let ledger_table = ledger_table::LedgerTableView::new();
+fn show_ledger_table(siv: &mut Cursive, dc: &DependencyContainer) {
+    let ledger_table = ledger_table::LedgerTableView::new(dc.ledger_repo());
 
     ledger_table.add_table(siv);
 }
 
-fn show_pto_view(siv: &mut Cursive) {
+fn show_pto_view(siv: &mut Cursive, dc: &DependencyContainer) {
     siv.pop_layer();
-    pto_table::show_pto_table_view(siv);
+    pto_table::show_pto_table_view(siv, &dc.pto_repo(), &dc.pto_plan_repo(), &dc.holiday_hours_repo());
 }
 
 fn clear(siv: &mut Cursive){

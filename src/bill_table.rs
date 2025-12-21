@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::rc::Rc;
 use std::str::FromStr;
 use bigdecimal::BigDecimal;
 use chrono::{Datelike, Local, NaiveDate};
@@ -6,10 +7,8 @@ use cursive::Cursive;
 use cursive::traits::*;
 use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, TextArea};
 use cursive_table_view::{TableView, TableViewItem};
-use diesel::prelude::*;
-use crate::db::establish_connection;
 use crate::models;
-use crate::schema::bills::dsl::*;
+use crate::repositories::bill_repo::BillRepo;
 use crate::ui_helpers::toggle_buttons_visible;
 
 // Button name constants
@@ -73,14 +72,12 @@ impl TableViewItem<BasicColumn> for BillDisplay {
 
 pub struct BillTableView {
     table: TableView<BillDisplay,BasicColumn>,
+    bill_repo: Rc<BillRepo>
 }
 
 impl BillTableView {
-    pub fn new() -> Self {
-        let mut conn = establish_connection();
-        let results = bills
-            .load::<models::Bill>(&mut conn)
-            .expect("Error loading bills");
+    pub fn new(bill_repo: Rc<BillRepo>) -> Self {
+        let results = bill_repo.find_all();
 
         let bill_displays: Vec<BillDisplay> = results
             .into_iter()
@@ -93,25 +90,30 @@ impl BillTableView {
                 .column(BasicColumn::Amount, "Amount", |c| c.width_percent(25))
                 .column(BasicColumn::DueDay, "Due Day", |c| c.width_percent(25))
                 .column(BasicColumn::IsAutoPay, "Auto Pay", |c| c.width_percent(20))
-                .items(bill_displays)
+                .items(bill_displays),
+            bill_repo
         }
     }
 
     pub fn add_table(self, siv: &mut Cursive) {
         siv.pop_layer();
 
+        let repo_add = Rc::clone(&self.bill_repo);
+        let repo_edit = Rc::clone(&self.bill_repo);
+        let repo_delete = Rc::clone(&self.bill_repo);
+
         let buttons = LinearLayout::horizontal()
-            .child(Button::new("Add", |s| bill_form(s, None)))
-            .child(HideableView::new(Button::new("Edit", |s| {
+            .child(Button::new("Add", move |s| bill_form(s, None, &repo_add)))
+            .child(HideableView::new(Button::new("Edit", move |s| {
                 let selected = s.call_on_name("bill_table", |v: &mut TableView<BillDisplay, BasicColumn>| {
                     v.borrow_item(v.item().unwrap()).cloned()
                 }).flatten();
 
                 if let Some(bill) = selected {
-                    bill_form(s, Some(bill));
+                    bill_form(s, Some(bill), &repo_edit);
                 }
             })).with_name(BILL_EDIT_BUTTON))
-            .child(HideableView::new(Button::new("Delete", |s| delete_bill(s))).with_name(BILL_DELETE_BUTTON));
+            .child(HideableView::new(Button::new("Delete", move |s| delete_bill(s, &repo_delete))).with_name(BILL_DELETE_BUTTON));
         let bill_count = self.table.len();
         let content = LinearLayout::vertical()
             .child(Panel::new(
@@ -133,7 +135,7 @@ impl BillTableView {
     }
 }
 
-fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
+fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>, bill_repo: &Rc<BillRepo>) {
     let is_edit = existing.is_some();
     let title = if is_edit { "Edit Bill" } else { "Add Bill" };
     let button_label = if is_edit { "Update" } else { "Ok" };
@@ -166,6 +168,7 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
 
     let bill_id = existing.map(|b| b.id);
 
+    let repo = Rc::clone(bill_repo);
     siv.add_layer(
         Dialog::new()
             .title(title)
@@ -218,40 +221,29 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
                     return;
                 }
 
-                let mut conn = establish_connection();
-
                 if let Some(record_id) = bill_id {
                     // Update existing
-                    diesel::update(bills.find(record_id))
-                        .set((
-                            name.eq(name_str.to_string()),
-                            amount.eq(amount_bd.unwrap()),
-                            due_day.eq(due_date.unwrap()),
-                            is_auto_pay.eq(is_auto),
-                            notes.eq(if notes_str.is_empty() { None } else { Some(notes_str.to_string()) }),
-                        ))
-                        .execute(&mut conn)
-                        .expect("Error updating bill");
+                    repo.update(
+                        record_id,
+                        name_str.to_string(),
+                        amount_bd.unwrap(),
+                        due_date,
+                        is_auto,
+                        if notes_str.is_empty() { None } else { Some(notes_str.to_string()) }
+                    );
                 } else {
                     // Insert new
-                    let new_bill = models::NewBill {
-                        name: name_str.to_string(),
-                        amount: amount_bd.unwrap(),
-                        due_day: due_date,
-                        is_auto_pay: is_auto,
-                        notes: if notes_str.is_empty() { None } else { Some(notes_str.to_string()) },
-                    };
-
-                    diesel::insert_into(bills)
-                        .values(&new_bill)
-                        .execute(&mut conn)
-                        .expect("Error saving bill");
+                    repo.create(
+                        name_str.to_string(),
+                        amount_bd.unwrap(),
+                        due_date,
+                        is_auto,
+                        if notes_str.is_empty() { None } else { Some(notes_str.to_string()) }
+                    );
                 }
 
                 // Reload table
-                let results = bills
-                    .load::<models::Bill>(&mut conn)
-                    .expect("Error loading bills");
+                let results = repo.find_all();
 
                 let bill_displays: Vec<BillDisplay> = results
                     .into_iter()
@@ -284,25 +276,20 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>) {
     );
 }
 
-fn delete_bill(siv: &mut Cursive) {
+fn delete_bill(siv: &mut Cursive, bill_repo: &Rc<BillRepo>) {
     let selected = siv.call_on_name("bill_table", |v: &mut TableView<BillDisplay, BasicColumn>| {
         v.borrow_item(v.item().unwrap()).cloned()
     }).flatten();
 
     if let Some(bill) = selected {
+        let repo = Rc::clone(bill_repo);
         siv.add_layer(
             Dialog::text(format!("Delete bill '{}'?", bill.name))
                 .button("Yes", move |s| {
-                    let mut conn = establish_connection();
-
-                    diesel::delete(bills.find(bill.id))
-                        .execute(&mut conn)
-                        .expect("Error deleting bill");
+                    repo.delete(bill.id);
 
                     // Reload table
-                    let results = bills
-                        .load::<models::Bill>(&mut conn)
-                        .expect("Error loading bills");
+                    let results = repo.find_all();
 
                     let bill_displays: Vec<BillDisplay> = results
                         .into_iter()

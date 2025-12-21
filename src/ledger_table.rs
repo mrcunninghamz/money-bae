@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::rc::Rc;
 use bigdecimal::BigDecimal;
 use chrono::{Datelike, Local, NaiveDate, ParseResult};
 use cursive::Cursive;
@@ -8,8 +9,8 @@ use cursive_table_view::{TableView, TableViewItem};
 use diesel::prelude::*;
 
 use crate::models;
-use crate::schema::ledgers::dsl::*;
-use crate::db::establish_connection;
+use crate::repositories::ledger_repo::LedgerRepo;
+use crate::db::PgConnector;
 use crate::ui_helpers::toggle_buttons_visible;
 
 // Button name constants
@@ -89,14 +90,12 @@ impl TableViewItem<BasicColumn> for LedgerDisplay {
 
 pub struct LedgerTableView {
     table: TableView<LedgerDisplay, BasicColumn>,
+    ledger_repo: Rc<LedgerRepo>,
 }
 
 impl LedgerTableView {
-    pub fn new() -> Self {
-        let mut conn = establish_connection();
-        let results = ledgers
-            .load::<models::Ledger>(&mut conn)
-            .expect("Error loading ledgers");
+    pub fn new(ledger_repo: Rc<LedgerRepo>) -> Self {
+        let results = ledger_repo.find_all();
 
         let ledger_displays: Vec<LedgerDisplay> = results
             .into_iter()
@@ -110,26 +109,32 @@ impl LedgerTableView {
                 .column(BasicColumn::Total, "Available Funds", |c| c.width_percent(20))
                 .column(BasicColumn::Expenses, "Expenses", |c| c.width_percent(20))
                 .column(BasicColumn::Net, "Net", |c| c.width_percent(20))
-                .items(ledger_displays)
+                .items(ledger_displays),
+            ledger_repo,
         }
     }
 
     pub fn add_table(self, siv: &mut Cursive) {
         siv.pop_layer();
 
+        let repo_add = Rc::clone(&self.ledger_repo);
+        let repo_duplicate = Rc::clone(&self.ledger_repo);
+        let repo_delete = Rc::clone(&self.ledger_repo);
+        let repo_view = Rc::clone(&self.ledger_repo);
+
         let buttons = LinearLayout::horizontal()
-            .child(Button::new("Add", |s| add_ledger_dialog(s, None)))
-            .child(HideableView::new(Button::new("View", |s| view_ledger_detail(s))).with_name(LEDGER_VIEW_BUTTON))
-            .child(HideableView::new(Button::new("Duplicate", |s| {
+            .child(Button::new("Add", move |s| add_ledger_dialog(s, None, &repo_add)))
+            .child(HideableView::new(Button::new("View", move |s| view_ledger_detail(s, &repo_view))).with_name(LEDGER_VIEW_BUTTON))
+            .child(HideableView::new(Button::new("Duplicate", move |s| {
                 let selected = s.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
                     v.borrow_item(v.item().unwrap()).cloned()
                 }).flatten();
 
                 if let Some(ledger) = selected {
-                    add_ledger_dialog(s, Some(ledger));
+                    add_ledger_dialog(s, Some(ledger), &repo_duplicate);
                 }
             })).with_name(LEDGER_DUPLICATE_BUTTON))
-            .child(HideableView::new(Button::new("Delete", |s| delete_ledger(s))).with_name(LEDGER_DELETE_BUTTON));
+            .child(HideableView::new(Button::new("Delete", move |s| delete_ledger(s, &repo_delete))).with_name(LEDGER_DELETE_BUTTON));
 
         let ledger_count = self.table.len();
         let content = LinearLayout::vertical()
@@ -152,7 +157,7 @@ impl LedgerTableView {
     }
 }
 
-fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
+fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>, ledger_repo: &Rc<LedgerRepo>) {
     let is_duplicating = existing.is_some();
 
     let title = if is_duplicating { "Duplicate Ledger" } else { "Add Ledger" };
@@ -169,16 +174,18 @@ fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
         .unwrap_or_default();
 
     let button_label = if is_duplicating { "Duplicate" } else { "Ok" };
+    
+    let repo = Rc::clone(ledger_repo);
 
     siv.add_layer(
         Dialog::new()
             .title(title)
             .button(button_label, move |s| {
                 if is_duplicating {
-                    duplicate_ledger(s, existing.clone());
+                    duplicate_ledger(s, existing.clone(), &repo);
                 }
                 else {
-                    add_ledger(s);
+                    add_ledger(s, &repo);
                 }
 
             })
@@ -192,13 +199,14 @@ fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
     );
 }
 
-fn view_ledger_detail(siv: &mut Cursive) {
+fn view_ledger_detail(siv: &mut Cursive, ledger_repo: &Rc<LedgerRepo>) {
     let selected = siv.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
         v.borrow_item(v.item().unwrap()).cloned()
     }).flatten();
 
     if let Some(ledger) = selected {
-        crate::ledger_detail::show_ledger_detail(siv, ledger.id);
+        // ledger_detail still uses PgConnector - will be migrated in p3.4
+        crate::ledger_detail::show_ledger_detail(siv, ledger.id, ledger_repo);
     }
 }
 
@@ -219,7 +227,7 @@ fn get_form_values(s: &mut Cursive) -> (ParseResult<NaiveDate>, String, String) 
 
     (parsed_date, ledger_name.to_string(), notes_str.to_string())
 }
-fn add_ledger(s: &mut Cursive) {
+fn add_ledger(s: &mut Cursive, ledger_repo: &Rc<LedgerRepo>) {
     let (parsed_date, ledger_name, notes_str) = get_form_values(s);
 
     if parsed_date.is_err() {
@@ -227,28 +235,18 @@ fn add_ledger(s: &mut Cursive) {
         return;
     }
 
-    let mut conn = establish_connection();
-    let new_ledger = models::NewLedger {
-        date: parsed_date.unwrap(),
-        name: ledger_name.to_string(),
-        bank_balance: BigDecimal::from(0),
-        notes: if notes_str.is_empty() { None } else { Some(notes_str) },
-    };
-
-    diesel::insert_into(ledgers)
-        .values(&new_ledger)
-        .execute(&mut conn)
-        .expect("Error saving ledger");
+    ledger_repo.create(
+        parsed_date.unwrap(),
+        ledger_name.to_string(),
+        BigDecimal::from(0),
+        if notes_str.is_empty() { None } else { Some(notes_str) }
+    );
 
     // Reload table
-    let results = ledgers
-        .load::<models::Ledger>(&mut conn)
-        .expect("Error loading ledgers");
-
-    let ledger_displays: Vec<LedgerDisplay> = results
+    let ledger_displays = ledger_repo.find_all()
         .into_iter()
         .map(|l| l.into())
-        .collect();
+        .collect::<Vec<LedgerDisplay>>();
     let ledger_count = ledger_displays.len();
 
     s.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
@@ -259,7 +257,7 @@ fn add_ledger(s: &mut Cursive) {
     toggle_buttons_visible(s, ledger_count, TOGGLE_BUTTONS);
 }
 
-fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
+fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>, ledger_repo: &Rc<LedgerRepo>) {
 
     if let Some(ledger) = selected {
         let (parsed_date, ledger_name, notes_str) = get_form_values(s);
@@ -273,66 +271,63 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
             s.add_layer(Dialog::info("Ledger name cannot be empty or whitespace."));
             return;
         }
-        let new_ledger = models::NewLedger {
-            date: parsed_date.unwrap(),
-            name: ledger_name,
-            bank_balance: BigDecimal::from(0),
-            notes: if notes_str.is_empty() { None } else { Some(notes_str) },
+
+        let new_ledger_record = ledger_repo.create(
+            parsed_date.unwrap(),
+            ledger_name,
+            BigDecimal::from(0),
+            if notes_str.is_empty() { None } else { Some(notes_str) }
+        );
+
+        // Duplicate ledger bills using raw queries
+        let pg_connector = ledger_repo.pg_connector();
+        let old_ledger_bills = {
+            use crate::schema::ledger_bills;
+            let mut conn = pg_connector.get_connection();
+            ledger_bills::table
+                .filter(ledger_bills::ledger_id.eq(ledger.id))
+                .load::<models::LedgerBill>(&mut *conn)
+                .expect("Error loading ledger bills")
         };
 
-        let mut conn = establish_connection();
+        {
+            use crate::schema::ledger_bills;
+            use crate::schema::bills;
+            let mut conn = pg_connector.get_connection();
 
-        let new_ledger_record: models::Ledger = diesel::insert_into(ledgers)
-            .values(&new_ledger)
-            .get_result(&mut conn)
-            .expect("Error duplicating ledger");
+            for old_bill in old_ledger_bills {
+                // Get the bill to check is_auto_pay
+                let bill = bills::table
+                    .find(old_bill.bill_id)
+                    .first::<models::Bill>(&mut *conn)
+                    .expect("Error loading bill");
 
-        // Duplicate ledger bills
-        use crate::schema::ledger_bills;
-        use crate::schema::bills;
+                // Update due_day to new ledger's month if it exists
+                let updated_due_day = old_bill.due_day.map(|old_date| {
+                    new_ledger_record.date.with_day(old_date.day()).unwrap_or(new_ledger_record.date)
+                });
 
-        let old_ledger_bills = ledger_bills::table
-            .filter(ledger_bills::ledger_id.eq(ledger.id))
-            .load::<models::LedgerBill>(&mut conn)
-            .expect("Error loading ledger bills");
+                let new_ledger_bill = models::NewLedgerBill {
+                    ledger_id: new_ledger_record.id,
+                    bill_id: old_bill.bill_id,
+                    amount: old_bill.amount,
+                    due_day: updated_due_day,
+                    is_payed: bill.is_auto_pay,
+                    notes: None,
+                };
 
-        for old_bill in old_ledger_bills {
-            // Get the bill to check is_auto_pay
-            let bill = bills::table
-                .find(old_bill.bill_id)
-                .first::<models::Bill>(&mut conn)
-                .expect("Error loading bill");
-
-            // Update due_day to new ledger's month if it exists
-            let updated_due_day = old_bill.due_day.map(|old_date| {
-                new_ledger_record.date.with_day(old_date.day()).unwrap_or(new_ledger_record.date)
-            });
-
-            let new_ledger_bill = models::NewLedgerBill {
-                ledger_id: new_ledger_record.id,
-                bill_id: old_bill.bill_id,
-                amount: old_bill.amount,
-                due_day: updated_due_day,
-                is_payed: bill.is_auto_pay,
-                notes: None,
-            };
-
-            diesel::insert_into(ledger_bills::table)
-                .values(&new_ledger_bill)
-                .execute(&mut conn)
-                .expect("Error duplicating ledger bill");
+                diesel::insert_into(ledger_bills::table)
+                    .values(&new_ledger_bill)
+                    .execute(&mut *conn)
+                    .expect("Error duplicating ledger bill");
+            }
         }
 
         // Reload table
-        let results = ledgers
-            .load::<models::Ledger>(&mut conn)
-            .expect("Error loading ledgers");
-
-        let ledger_displays: Vec<LedgerDisplay> = results
+        let ledger_displays = ledger_repo.find_all()
             .into_iter()
             .map(|l| l.into())
-            .collect();
-
+            .collect::<Vec<LedgerDisplay>>();
         let ledger_count = ledger_displays.len();
 
         s.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
@@ -345,30 +340,23 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
     }
 }
 
-fn delete_ledger(siv: &mut Cursive) {
+fn delete_ledger(siv: &mut Cursive, ledger_repo: &Rc<LedgerRepo>) {
     let selected = siv.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
         v.borrow_item(v.item().unwrap()).cloned()
     }).flatten();
 
     if let Some(ledger) = selected {
+        let repo = Rc::clone(ledger_repo);
         siv.add_layer(
             Dialog::text("Delete this ledger?")
                 .button("Yes", move |s| {
-                    let mut conn = establish_connection();
-
-                    diesel::delete(ledgers.find(ledger.id))
-                        .execute(&mut conn)
-                        .expect("Error deleting ledger");
+                    repo.delete(ledger.id);
 
                     // Reload table
-                    let results = ledgers
-                        .load::<models::Ledger>(&mut conn)
-                        .expect("Error loading ledgers");
-
-                    let ledger_displays: Vec<LedgerDisplay> = results
+                    let ledger_displays = repo.find_all()
                         .into_iter()
                         .map(|l| l.into())
-                        .collect();
+                        .collect::<Vec<LedgerDisplay>>();
                     let ledger_count = ledger_displays.len();
 
                     s.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {

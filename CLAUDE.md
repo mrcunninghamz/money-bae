@@ -8,26 +8,52 @@ money-bae: Terminal UI personal finance tracker built with Rust using the Cursiv
 
 ## Environment Setup
 
-**Critical:** `MONEYBAE_DATABASE_URL` must be set for application to run.
+### Configuration System
 
-### For Development (cargo run)
+Application uses `confy` for configuration management. Database connection stored in config file (auto-created on first run).
+
+**Development vs Production:**
+- `cargo run` → `~/.config/money-bae-dev/money-bae-dev.toml` (dev database)
+- `cargo run --release` / installed binary → `~/.config/money-bae/money-bae.toml` (prod database)
+
+Determined by `cfg!(debug_assertions)` in `configuration_manager.rs`.
+
+### Database Setup
+
+**Create databases:**
 ```bash
-# .env file (gitignored, in project root)
-MONEYBAE_DATABASE_URL=postgres://username@localhost/money_bae
+createdb money_bae_dev
+createdb money_bae
 ```
 
-### For System-wide Installation
+**Configure via confy files:**
 ```bash
-# Add to ~/.zshrc or ~/.bashrc
-export MONEYBAE_DATABASE_URL="postgres://username@localhost/money_bae"
+# Dev config: ~/.config/money-bae-dev/money-bae-dev.toml
+database_connection_string = "postgres://username@localhost/money_bae_dev"
 
-# Reload shell
-source ~/.zshrc
+# Prod config: ~/.config/money-bae/money-bae.toml
+database_connection_string = "postgres://username@localhost/money_bae"
 ```
 
-**Why both?**
-- `.env`: Used by `cargo run` from project directory
-- Shell export: Required for installed binary (`money-bae` command) to work from any directory
+### Diesel Migrations
+
+Diesel CLI uses `.env` file (reads `DATABASE_URL`). Helper scripts provided:
+
+```bash
+# Development workflow
+./use-dev-env.sh          # Copies .env.dev to .env
+diesel migration run
+
+# Production workflow (ALWAYS BACKUP FIRST)
+./backup-db.sh money_bae  # Backup before migration
+./use-prod-env.sh         # Copies .env.prod to .env
+diesel migration run
+```
+
+**Files:**
+- `.env.dev` - Dev database URL (tracked in git)
+- `.env.prod` - Prod database URL (tracked in git)
+- `.env` - Active env (gitignored, created by helper scripts)
 
 ## Build & Run Commands
 
