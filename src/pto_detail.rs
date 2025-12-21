@@ -10,7 +10,9 @@ use diesel::prelude::*;
 
 use crate::models;
 use crate::schema;
-use crate::db::PgConnector;
+use crate::repositories::pto_repo::PtoRepo;
+use crate::repositories::pto_plan_repo::PtoPlanRepo;
+use crate::repositories::holiday_hours_repo::HolidayHoursRepo;
 use crate::ui_helpers::toggle_buttons_visible;
 
 fn get_default_date(year: i32) -> String {
@@ -22,15 +24,11 @@ fn calculate_or_custom_hours(
     start_date: NaiveDate,
     end_date: NaiveDate,
     pto_id: i32,
-    pg_connector: &Rc<PgConnector>
+    holiday_repo: &Rc<HolidayHoursRepo>
 ) -> (BigDecimal, bool) {
     if hours_str.trim().is_empty() {
         // Auto-calculate: load holidays for this PTO
-        let mut conn = pg_connector.get_connection();
-        let holidays = schema::holiday_hours::table
-            .filter(schema::holiday_hours::pto_id.eq(pto_id))
-            .load::<models::HolidayHours>(&mut *conn)
-            .expect("Error loading holidays");
+        let holidays = holiday_repo.find_by_pto_id(pto_id);
         
         let holiday_tuples: Vec<(chrono::NaiveDate, BigDecimal)> = holidays
             .into_iter()
@@ -138,26 +136,10 @@ impl TableViewItem<PlanColumn> for PlanDisplay {
     }
 }
 
-pub fn show_pto_detail(siv: &mut Cursive, pto_id: i32, pg_connector: &Rc<PgConnector>) {
-    use crate::schema::holiday_hours::dsl as holiday_dsl;
-    use crate::schema::pto_plan::dsl as plan_dsl;
-    use crate::schema::ptos::dsl::*;
-
-    let mut conn = pg_connector.get_connection();
-    
-    let pto = ptos.find(pto_id).first::<models::Pto>(&mut *conn).expect("Error loading PTO");
-    
-    let holidays = holiday_dsl::holiday_hours
-        .filter(holiday_dsl::pto_id.eq(pto_id))
-        .order(holiday_dsl::date.asc())
-        .load::<models::HolidayHours>(&mut *conn)
-        .expect("Error loading holidays");
-    
-    let plans = plan_dsl::pto_plan
-        .filter(plan_dsl::pto_id.eq(pto_id))
-        .order(plan_dsl::start_date.asc())
-        .load::<models::PtoPlan>(&mut *conn)
-        .expect("Error loading PTO plans");
+pub fn show_pto_detail(siv: &mut Cursive, pto_id: i32, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
+    let pto = pto_repo.find_by_id(pto_id).expect("Error loading PTO");
+    let holidays = holiday_repo.find_by_pto_id(pto_id);
+    let plans = pto_plan_repo.find_by_pto_id(pto_id);
 
     // Left column: PTO Planning table
     let mut plan_table = TableView::<PlanDisplay, PlanColumn>::new()
@@ -186,13 +168,20 @@ pub fn show_pto_detail(siv: &mut Cursive, pto_id: i32, pg_connector: &Rc<PgConne
         toggle_buttons_visible(siv, item_count, PLAN_TOGGLE_BUTTONS);
     });
 
-    let connector_add_plan = Rc::clone(pg_connector);
-    let connector_edit_plan = Rc::clone(pg_connector);
-    let connector_delete_plan = Rc::clone(pg_connector);
+    let repo_add_plan = Rc::clone(pto_plan_repo);
+    let pto_repo_add_plan = Rc::clone(pto_repo);
+    let holiday_repo_add_plan = Rc::clone(holiday_repo);
+    let repo_edit_plan = Rc::clone(pto_plan_repo);
+    let pto_repo_edit_plan = Rc::clone(pto_repo);
+    let holiday_repo_edit_plan = Rc::clone(holiday_repo);
+    let repo_delete_plan = Rc::clone(pto_plan_repo);
+    let pto_repo_delete_plan = Rc::clone(pto_repo);
+    let holiday_repo_delete_plan = Rc::clone(holiday_repo);
+    let holiday_repo_for_plan = Rc::clone(holiday_repo);
     let plan_buttons = LinearLayout::horizontal()
-        .child(Button::new("Add", move |s| show_add_plan_dialog(s, pto_id, pto.year, &connector_add_plan)))
-        .child(Button::new("Edit", move |s| edit_selected_plan(s, pto_id, &connector_edit_plan)).with_name(PLAN_EDIT_BUTTON))
-        .child(Button::new("Delete", move |s| delete_selected_plan(s, &connector_delete_plan)).with_name(PLAN_DELETE_BUTTON))
+        .child(Button::new("Add", move |s| show_add_plan_dialog(s, pto_id, pto.year, &pto_repo_add_plan, &repo_add_plan, &holiday_repo_add_plan)))
+        .child(Button::new("Edit", move |s| edit_selected_plan(s, pto_id, &pto_repo_edit_plan, &repo_edit_plan, &holiday_repo_edit_plan)).with_name(PLAN_EDIT_BUTTON))
+        .child(Button::new("Delete", move |s| delete_selected_plan(s, &pto_repo_delete_plan, &repo_delete_plan, &holiday_repo_delete_plan)).with_name(PLAN_DELETE_BUTTON))
         .child(Button::new("View Description", |s| view_plan_description(s)).with_name(PLAN_VIEW_DESC_BUTTON));
 
     let left_col = LinearLayout::vertical()
@@ -221,15 +210,23 @@ pub fn show_pto_detail(siv: &mut Cursive, pto_id: i32, pg_connector: &Rc<PgConne
         toggle_buttons_visible(siv, item_count, HOLIDAY_TOGGLE_BUTTONS);
     });
 
-    let connector_add_holiday = Rc::clone(pg_connector);
-    let connector_edit_holiday = Rc::clone(pg_connector);
-    let connector_delete_holiday = Rc::clone(pg_connector);
-    let connector_copy_holiday = Rc::clone(pg_connector);
+    let repo_add_holiday = Rc::clone(holiday_repo);
+    let pto_repo_add = Rc::clone(pto_repo);
+    let plan_repo_add = Rc::clone(pto_plan_repo);
+    let repo_edit_holiday = Rc::clone(holiday_repo);
+    let pto_repo_edit = Rc::clone(pto_repo);
+    let plan_repo_edit = Rc::clone(pto_plan_repo);
+    let repo_delete_holiday = Rc::clone(holiday_repo);
+    let pto_repo_delete = Rc::clone(pto_repo);
+    let plan_repo_delete = Rc::clone(pto_plan_repo);
+    let repo_copy_holiday = Rc::clone(holiday_repo);
+    let pto_repo_copy = Rc::clone(pto_repo);
+    let plan_repo_copy = Rc::clone(pto_plan_repo);
     let holiday_buttons = LinearLayout::horizontal()
-        .child(Button::new("Add", move |s| show_add_holiday_dialog(s, pto_id, pto.year, &connector_add_holiday)))
-        .child(Button::new("Edit", move |s| edit_selected_holiday(s, pto_id, &connector_edit_holiday)).with_name(HOLIDAY_EDIT_BUTTON))
-        .child(Button::new("Delete", move |s| delete_selected_holiday(s, &connector_delete_holiday)).with_name(HOLIDAY_DELETE_BUTTON))
-        .child(Button::new("Copy from Last Year", move |s| copy_holidays_from_last_year(s, pto_id, pto.year, &connector_copy_holiday)));
+        .child(Button::new("Add", move |s| show_add_holiday_dialog(s, pto_id, pto.year, &pto_repo_add, &plan_repo_add, &repo_add_holiday)))
+        .child(Button::new("Edit", move |s| edit_selected_holiday(s, pto_id, &pto_repo_edit, &plan_repo_edit, &repo_edit_holiday)).with_name(HOLIDAY_EDIT_BUTTON))
+        .child(Button::new("Delete", move |s| delete_selected_holiday(s, &pto_repo_delete, &plan_repo_delete, &repo_delete_holiday)).with_name(HOLIDAY_DELETE_BUTTON))
+        .child(Button::new("Copy from Last Year", move |s| copy_holidays_from_last_year(s, pto_id, pto.year, &pto_repo_copy, &plan_repo_copy, &repo_copy_holiday)));
 
     let summary = TextView::new(format!(
         "Year: {}\nAvailable Hours: {:.2}\nHours Planned: {:.2}\nHours Used: {:.2}\nHours Remaining: {:.2}",
@@ -276,8 +273,10 @@ fn view_plan_description(siv: &mut Cursive) {
     }
 }
 
-fn show_add_holiday_dialog(siv: &mut Cursive, pto_id: i32, pto_year: i32, pg_connector: &Rc<PgConnector>) {
-    let connector_ok = Rc::clone(pg_connector);
+fn show_add_holiday_dialog(siv: &mut Cursive, pto_id: i32, pto_year: i32, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
+    let repo_ok = Rc::clone(holiday_repo);
+    let pto_repo_ok = Rc::clone(pto_repo);
+    let plan_repo_ok = Rc::clone(pto_plan_repo);
     let dialog = Dialog::new()
         .title("Add Holiday")
         .content(
@@ -300,22 +299,11 @@ fn show_add_holiday_dialog(siv: &mut Cursive, pto_id: i32, pto_year: i32, pg_con
             };
             let hours_val = BigDecimal::parse_bytes(hours_str.as_bytes(), 10).unwrap_or_default();
 
-            let mut conn = connector_ok.get_connection();
-            let new_holiday = models::NewHolidayHours {
-                pto_id,
-                date: date_val,
-                name: name_str.to_string(),
-                hours: hours_val,
-            };
-
-            diesel::insert_into(schema::holiday_hours::table)
-                .values(&new_holiday)
-                .execute(&mut *conn)
-                .expect("Error saving holiday");
+            repo_ok.create(pto_id, date_val, name_str.to_string(), hours_val);
 
             s.pop_layer();
             s.pop_layer();
-            show_pto_detail(s, pto_id, &connector_ok);
+            show_pto_detail(s, pto_id, &pto_repo_ok, &plan_repo_ok, &repo_ok);
         })
         .button("Cancel", |s| {
             s.pop_layer();
@@ -324,7 +312,7 @@ fn show_add_holiday_dialog(siv: &mut Cursive, pto_id: i32, pto_year: i32, pg_con
     siv.add_layer(dialog);
 }
 
-fn edit_selected_holiday(siv: &mut Cursive, pto_id: i32, pg_connector: &Rc<PgConnector>) {
+fn edit_selected_holiday(siv: &mut Cursive, pto_id: i32, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
     let selected = siv
         .call_on_name("holiday_table", |table: &mut TableView<HolidayDisplay, HolidayColumn>| {
             table.borrow_item(table.row().unwrap()).cloned()
@@ -332,7 +320,9 @@ fn edit_selected_holiday(siv: &mut Cursive, pto_id: i32, pg_connector: &Rc<PgCon
         .flatten();
 
     if let Some(holiday) = selected {
-        let connector_ok = Rc::clone(pg_connector);
+        let repo_ok = Rc::clone(holiday_repo);
+        let pto_repo_ok = Rc::clone(pto_repo);
+        let plan_repo_ok = Rc::clone(pto_plan_repo);
         let dialog = Dialog::new()
             .title("Edit Holiday")
             .content(
@@ -355,19 +345,11 @@ fn edit_selected_holiday(siv: &mut Cursive, pto_id: i32, pg_connector: &Rc<PgCon
                 };
                 let hours_val = BigDecimal::parse_bytes(hours_str.as_bytes(), 10).unwrap_or_default();
 
-                let mut conn = connector_ok.get_connection();
-                diesel::update(schema::holiday_hours::table.find(holiday.id))
-                    .set((
-                        schema::holiday_hours::date.eq(date_val),
-                        schema::holiday_hours::name.eq(name_str.to_string()),
-                        schema::holiday_hours::hours.eq(hours_val),
-                    ))
-                    .execute(&mut *conn)
-                    .expect("Error updating holiday");
+                repo_ok.update(holiday.id, date_val, name_str.to_string(), hours_val);
 
                 s.pop_layer();
                 s.pop_layer();
-                show_pto_detail(s, pto_id, &connector_ok);
+                show_pto_detail(s, pto_id, &pto_repo_ok, &plan_repo_ok, &repo_ok);
             })
             .button("Cancel", |s| {
                 s.pop_layer();
@@ -377,7 +359,7 @@ fn edit_selected_holiday(siv: &mut Cursive, pto_id: i32, pg_connector: &Rc<PgCon
     }
 }
 
-fn delete_selected_holiday(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
+fn delete_selected_holiday(siv: &mut Cursive, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
     let selected_id = siv
         .call_on_name("holiday_table", |table: &mut TableView<HolidayDisplay, HolidayColumn>| {
             table.borrow_item(table.row().unwrap()).map(|item| item.id)
@@ -385,13 +367,10 @@ fn delete_selected_holiday(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
         .flatten();
 
     if let Some(holiday_id) = selected_id {
-        let connector_yes = Rc::clone(pg_connector);
+        let repo_yes = Rc::clone(holiday_repo);
         let dialog = Dialog::text("Delete this holiday?")
             .button("Yes", move |s| {
-                let mut conn = connector_yes.get_connection();
-                diesel::delete(schema::holiday_hours::table.find(holiday_id))
-                    .execute(&mut *conn)
-                    .expect("Error deleting holiday");
+                repo_yes.delete(holiday_id);
 
                 s.pop_layer();
             })
@@ -403,64 +382,48 @@ fn delete_selected_holiday(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
     }
 }
 
-fn copy_holidays_from_last_year(siv: &mut Cursive, pto_id: i32, current_year: i32, pg_connector: &Rc<PgConnector>) {
-    let mut conn = pg_connector.get_connection();
+fn copy_holidays_from_last_year(siv: &mut Cursive, pto_id: i32, current_year: i32, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
+    let prev_year = current_year - 1;
     
     // Find PTO record for previous year
-    let prev_year = current_year - 1;
-    let prev_pto = schema::ptos::table
-        .filter(schema::ptos::year.eq(prev_year))
-        .first::<models::Pto>(&mut *conn)
-        .optional()
-        .expect("Error loading previous year PTO");
+    let pg_connector = holiday_repo.pg_connector();
+    let prev_pto = {
+        let mut conn = pg_connector.get_connection();
+        schema::ptos::table
+            .filter(schema::ptos::year.eq(prev_year))
+            .first::<models::Pto>(&mut *conn)
+            .optional()
+            .expect("Error loading previous year PTO")
+    };
     
     if let Some(prev_pto) = prev_pto {
-        // Load holidays from previous year
-        let prev_holidays = schema::holiday_hours::table
-            .filter(schema::holiday_hours::pto_id.eq(prev_pto.id))
-            .load::<models::HolidayHours>(&mut *conn)
-            .expect("Error loading previous year holidays");
+        let count = holiday_repo.copy_from_previous_year(prev_pto.id, pto_id, 1);
         
-        if prev_holidays.is_empty() {
+        if count == 0 {
             siv.add_layer(Dialog::info(format!("No holidays found for year {}", prev_year)));
             return;
         }
         
-        let count = prev_holidays.len();
-        
-        // Copy holidays with updated year
-        for holiday in prev_holidays {
-            let new_date = holiday.date.with_year(current_year)
-                .unwrap_or(holiday.date);
-            
-            let new_holiday = models::NewHolidayHours {
-                pto_id,
-                date: new_date,
-                name: holiday.name.clone(),
-                hours: holiday.hours.clone(),
-            };
-            
-            diesel::insert_into(schema::holiday_hours::table)
-                .values(&new_holiday)
-                .execute(&mut *conn)
-                .expect("Error copying holiday");
-        }
-        
-        let connector_ok = Rc::clone(pg_connector);
+        let repo_ok = Rc::clone(pto_repo);
+        let plan_repo_ok = Rc::clone(pto_plan_repo);
+        let holiday_repo_ok = Rc::clone(holiday_repo);
         siv.add_layer(Dialog::info(format!("Copied {} holidays from {}", count, prev_year))
             .button("Ok", move |s| {
                 s.pop_layer();
                 s.pop_layer();
-                show_pto_detail(s, pto_id, &connector_ok);
+                show_pto_detail(s, pto_id, &repo_ok, &plan_repo_ok, &holiday_repo_ok);
             }));
     } else {
         siv.add_layer(Dialog::info(format!("No PTO record found for year {}", prev_year)));
     }
 }
 
-fn show_add_plan_dialog(siv: &mut Cursive, pto_id: i32, pto_year: i32, pg_connector: &Rc<PgConnector>) {
-    let connector_ok = Rc::clone(pg_connector);
-    let connector_calc = Rc::clone(pg_connector);
+fn show_add_plan_dialog(siv: &mut Cursive, pto_id: i32, pto_year: i32, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
+    let repo_ok = Rc::clone(pto_plan_repo);
+    let pto_repo_ok = Rc::clone(pto_repo);
+    let plan_repo_ok = Rc::clone(pto_plan_repo);
+    let holiday_repo_calc = Rc::clone(holiday_repo);
+    let holiday_repo_ok = Rc::clone(holiday_repo);
     let dialog = Dialog::new()
         .title("Add PTO Plan")
         .content(
@@ -492,28 +455,22 @@ fn show_add_plan_dialog(siv: &mut Cursive, pto_id: i32, pto_year: i32, pg_connec
                 None => return,
             };
             
-            let (hours_val, custom_hours_val) = calculate_or_custom_hours(&hours_str, start_val, end_val, pto_id, &connector_calc);
+            let (hours_val, custom_hours_val) = calculate_or_custom_hours(&hours_str, start_val, end_val, pto_id, &holiday_repo_calc);
 
-            let mut conn = connector_ok.get_connection();
-            let new_plan = models::NewPtoPlan {
+            repo_ok.create(
                 pto_id,
-                start_date: start_val,
-                end_date: end_val,
-                name: name_str.to_string(),
-                description: if desc_str.is_empty() { None } else { Some(desc_str.to_string()) },
-                hours: hours_val,
-                status: "Planned".to_string(),
-                custom_hours: custom_hours_val,
-            };
-
-            diesel::insert_into(schema::pto_plan::table)
-                .values(&new_plan)
-                .execute(&mut *conn)
-                .expect("Error saving PTO plan");
+                start_val,
+                end_val,
+                name_str.to_string(),
+                if desc_str.is_empty() { None } else { Some(desc_str.to_string()) },
+                hours_val,
+                "Planned".to_string(),
+                custom_hours_val,
+            );
 
             s.pop_layer();
             s.pop_layer();
-            show_pto_detail(s, pto_id, &connector_ok);
+            show_pto_detail(s, pto_id, &pto_repo_ok, &plan_repo_ok, &holiday_repo_ok);
         })
         .button("Cancel", |s| {
             s.pop_layer();
@@ -522,7 +479,7 @@ fn show_add_plan_dialog(siv: &mut Cursive, pto_id: i32, pto_year: i32, pg_connec
     siv.add_layer(dialog);
 }
 
-fn edit_selected_plan(siv: &mut Cursive, pto_id: i32, pg_connector: &Rc<PgConnector>) {
+fn edit_selected_plan(siv: &mut Cursive, pto_id: i32, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
     let selected = siv
         .call_on_name("plan_table", |table: &mut TableView<PlanDisplay, PlanColumn>| {
             table.borrow_item(table.row().unwrap()).cloned()
@@ -530,8 +487,11 @@ fn edit_selected_plan(siv: &mut Cursive, pto_id: i32, pg_connector: &Rc<PgConnec
         .flatten();
 
     if let Some(plan) = selected {
-        let connector_ok = Rc::clone(pg_connector);
-        let connector_calc = Rc::clone(pg_connector);
+        let repo_ok = Rc::clone(pto_plan_repo);
+        let pto_repo_ok = Rc::clone(pto_repo);
+        let plan_repo_ok = Rc::clone(pto_plan_repo);
+        let holiday_repo_calc = Rc::clone(holiday_repo);
+        let holiday_repo_ok = Rc::clone(holiday_repo);
         let dialog = Dialog::new()
             .title("Edit PTO Plan")
             .content(
@@ -578,25 +538,22 @@ fn edit_selected_plan(siv: &mut Cursive, pto_id: i32, pg_connector: &Rc<PgConnec
                     None => return,
                 };
                 
-                let (hours_val, custom_hours_val) = calculate_or_custom_hours(&hours_str, start_val, end_val, pto_id, &connector_calc);
+                let (hours_val, custom_hours_val) = calculate_or_custom_hours(&hours_str, start_val, end_val, pto_id, &holiday_repo_calc);
 
-                let mut conn = connector_ok.get_connection();
-                diesel::update(schema::pto_plan::table.find(plan.id))
-                    .set((
-                        schema::pto_plan::start_date.eq(start_val),
-                        schema::pto_plan::end_date.eq(end_val),
-                        schema::pto_plan::name.eq(name_str.to_string()),
-                        schema::pto_plan::description.eq(if desc_str.is_empty() { None } else { Some(desc_str.to_string()) }),
-                        schema::pto_plan::hours.eq(hours_val),
-                        schema::pto_plan::status.eq(String::from(status)),
-                        schema::pto_plan::custom_hours.eq(custom_hours_val),
-                    ))
-                    .execute(&mut *conn)
-                    .expect("Error updating PTO plan");
+                repo_ok.update(
+                    plan.id,
+                    start_val,
+                    end_val,
+                    name_str.to_string(),
+                    if desc_str.is_empty() { None } else { Some(desc_str.to_string()) },
+                    hours_val,
+                    String::from(status),
+                    custom_hours_val,
+                );
 
                 s.pop_layer();
                 s.pop_layer();
-                show_pto_detail(s, pto_id, &connector_ok);
+                show_pto_detail(s, pto_id, &pto_repo_ok, &plan_repo_ok, &holiday_repo_ok);
             })
             .button("Cancel", |s| {
                 s.pop_layer();
@@ -606,7 +563,7 @@ fn edit_selected_plan(siv: &mut Cursive, pto_id: i32, pg_connector: &Rc<PgConnec
     }
 }
 
-fn delete_selected_plan(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
+fn delete_selected_plan(siv: &mut Cursive, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
     let selected_id = siv
         .call_on_name("plan_table", |table: &mut TableView<PlanDisplay, PlanColumn>| {
             table.borrow_item(table.row().unwrap()).map(|item| item.id)
@@ -614,13 +571,10 @@ fn delete_selected_plan(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
         .flatten();
 
     if let Some(plan_id) = selected_id {
-        let connector_yes = Rc::clone(pg_connector);
+        let repo_yes = Rc::clone(pto_plan_repo);
         let dialog = Dialog::text("Delete this PTO plan?")
             .button("Yes", move |s| {
-                let mut conn = connector_yes.get_connection();
-                diesel::delete(schema::pto_plan::table.find(plan_id))
-                    .execute(&mut *conn)
-                    .expect("Error deleting PTO plan");
+                repo_yes.delete(plan_id);
 
                 s.pop_layer();
             })

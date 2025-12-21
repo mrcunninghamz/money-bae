@@ -4,6 +4,7 @@ mod income_table;
 mod schema;
 mod models;
 mod db;
+mod repositories;
 mod bill_table;
 mod ledger_table;
 mod ledger_detail;
@@ -153,26 +154,26 @@ fn main() {
 }
 
 fn show_income_table(siv: &mut Cursive, dc: &DependencyContainer) {
-    let income_table = income_table::IncomeTableView::new(dc.pg_connector());
+    let income_table = income_table::IncomeTableView::new(dc.income_repo());
 
     income_table.add_table(siv);
 }
 
 fn show_bill_table(siv: &mut Cursive, dc: &DependencyContainer) {
-    let bill_table = bill_table::BillTableView::new(dc.pg_connector());
+    let bill_table = bill_table::BillTableView::new(dc.bill_repo());
 
     bill_table.add_table(siv);
 }
 
 fn show_ledger_table(siv: &mut Cursive, dc: &DependencyContainer) {
-    let ledger_table = ledger_table::LedgerTableView::new(dc.pg_connector());
+    let ledger_table = ledger_table::LedgerTableView::new(dc.ledger_repo());
 
     ledger_table.add_table(siv);
 }
 
 fn show_pto_view(siv: &mut Cursive, dc: &DependencyContainer) {
     siv.pop_layer();
-    pto_table::show_pto_table_view(siv, &dc.pg_connector());
+    pto_table::show_pto_table_view(siv, &dc.pto_repo(), &dc.pto_plan_repo(), &dc.holiday_hours_repo());
 }
 
 fn clear(siv: &mut Cursive){

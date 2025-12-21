@@ -23,3 +23,8 @@ Cargo.lock.bak
 
 # Debug files
 *.pdb
+
+# Database backups
+*.dump
+*.sql.gz
+*.backup

@@ -5,11 +5,11 @@ use cursive::Cursive;
 use cursive::traits::*;
 use cursive::views::{Button, Dialog, EditView, LinearLayout, Panel};
 use cursive_table_view::{TableView, TableViewItem};
-use diesel::prelude::*;
 
 use crate::models;
-use crate::schema::ptos::dsl::*;
-use crate::db::PgConnector;
+use crate::repositories::pto_repo::PtoRepo;
+use crate::repositories::pto_plan_repo::PtoPlanRepo;
+use crate::repositories::holiday_hours_repo::HolidayHoursRepo;
 use crate::ui_helpers::toggle_buttons_visible;
 
 const PTO_VIEW_BUTTON: &str = "pto_table_view_button";
@@ -71,13 +71,8 @@ impl TableViewItem<PtoColumn> for PtoDisplay {
     }
 }
 
-pub fn show_pto_table_view(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
-    let mut conn = pg_connector.get_connection();
-    
-    let pto_records = ptos
-        .order(year.desc())
-        .load::<models::Pto>(&mut *conn)
-        .expect("Error loading PTOs");
+pub fn show_pto_table_view(siv: &mut Cursive, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
+    let pto_records = pto_repo.find_all();
 
     let mut table = TableView::<PtoDisplay, PtoColumn>::new()
         .column(PtoColumn::Year, "Year", |c| c.width(10))
@@ -100,16 +95,24 @@ pub fn show_pto_table_view(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
     let table_view = Panel::new(table.with_name("pto_table").full_screen())
         .title("PTO Records");
 
-    let connector_add = Rc::clone(pg_connector);
-    let connector_view = Rc::clone(pg_connector);
-    let connector_edit = Rc::clone(pg_connector);
-    let connector_delete = Rc::clone(pg_connector);
+    let repo_add = Rc::clone(pto_repo);
+    let plan_repo_add = Rc::clone(pto_plan_repo);
+    let holiday_repo_add = Rc::clone(holiday_repo);
+    let repo_view = Rc::clone(pto_repo);
+    let plan_repo_view = Rc::clone(pto_plan_repo);
+    let holiday_repo_view = Rc::clone(holiday_repo);
+    let repo_edit = Rc::clone(pto_repo);
+    let plan_repo_edit = Rc::clone(pto_plan_repo);
+    let holiday_repo_edit = Rc::clone(holiday_repo);
+    let repo_delete = Rc::clone(pto_repo);
+    let plan_repo_delete = Rc::clone(pto_plan_repo);
+    let holiday_repo_delete = Rc::clone(holiday_repo);
 
     let buttons = LinearLayout::horizontal()
-        .child(Button::new("Add", move |s| show_add_pto_dialog(s, &connector_add)))
-        .child(Button::new("View", move |s| view_selected_pto(s, &connector_view)).with_name(PTO_VIEW_BUTTON))
-        .child(Button::new("Edit", move |s| edit_selected_pto(s, &connector_edit)).with_name(PTO_EDIT_BUTTON))
-        .child(Button::new("Delete", move |s| delete_selected_pto(s, &connector_delete)).with_name(PTO_DELETE_BUTTON));
+        .child(Button::new("Add", move |s| show_add_pto_dialog(s, &repo_add, &plan_repo_add, &holiday_repo_add)))
+        .child(Button::new("View", move |s| view_selected_pto(s, &repo_view, &plan_repo_view, &holiday_repo_view)).with_name(PTO_VIEW_BUTTON))
+        .child(Button::new("Edit", move |s| edit_selected_pto(s, &repo_edit, &plan_repo_edit, &holiday_repo_edit)).with_name(PTO_EDIT_BUTTON))
+        .child(Button::new("Delete", move |s| delete_selected_pto(s, &repo_delete, &plan_repo_delete, &holiday_repo_delete)).with_name(PTO_DELETE_BUTTON));
 
     let layout = LinearLayout::vertical()
         .child(table_view)
@@ -124,8 +127,10 @@ pub fn show_pto_table_view(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
     siv.add_layer(screen);
 }
 
-fn show_add_pto_dialog(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
-    let connector_ok = Rc::clone(pg_connector);
+fn show_add_pto_dialog(siv: &mut Cursive, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
+    let repo_ok = Rc::clone(pto_repo);
+    let plan_repo_ok = Rc::clone(pto_plan_repo);
+    let holiday_repo_ok = Rc::clone(holiday_repo);
     let dialog = Dialog::new()
         .title("Add PTO Record")
         .content(
@@ -143,20 +148,11 @@ fn show_add_pto_dialog(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
             let year_val: i32 = year_str.parse().unwrap_or(0);
             let available_val = BigDecimal::parse_bytes(available_str.as_bytes(), 10).unwrap_or_default();
 
-            let mut conn = connector_ok.get_connection();
-            let new_pto = models::NewPto {
-                year: year_val,
-                available_hours: available_val,
-            };
-
-            diesel::insert_into(ptos)
-                .values(&new_pto)
-                .execute(&mut *conn)
-                .expect("Error saving PTO");
+            repo_ok.create(year_val, available_val);
 
             s.pop_layer();
             s.pop_layer();
-            show_pto_table_view(s, &connector_ok);
+            show_pto_table_view(s, &repo_ok, &plan_repo_ok, &holiday_repo_ok);
         })
         .button("Cancel", |s| {
             s.pop_layer();
@@ -165,7 +161,7 @@ fn show_add_pto_dialog(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
     siv.add_layer(dialog);
 }
 
-fn view_selected_pto(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
+fn view_selected_pto(siv: &mut Cursive, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
     let selected_id = siv
         .call_on_name("pto_table", |table: &mut TableView<PtoDisplay, PtoColumn>| {
             table.borrow_item(table.row().unwrap()).map(|item| item.id)
@@ -174,11 +170,11 @@ fn view_selected_pto(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
 
     if let Some(pto_id) = selected_id {
         siv.pop_layer();
-        crate::pto_detail::show_pto_detail(siv, pto_id, pg_connector);
+        crate::pto_detail::show_pto_detail(siv, pto_id, pto_repo, pto_plan_repo, holiday_repo);
     }
 }
 
-fn edit_selected_pto(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
+fn edit_selected_pto(siv: &mut Cursive, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
     let selected_id = siv
         .call_on_name("pto_table", |table: &mut TableView<PtoDisplay, PtoColumn>| {
             table.borrow_item(table.row().unwrap()).map(|item| item.id)
@@ -186,10 +182,11 @@ fn edit_selected_pto(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
         .flatten();
 
     if let Some(pto_id) = selected_id {
-        let mut conn = pg_connector.get_connection();
-        let pto_record = ptos.find(pto_id).first::<models::Pto>(&mut *conn).expect("Error loading PTO");
+        let pto_record = pto_repo.find_by_id(pto_id).expect("Error loading PTO");
 
-        let connector_ok = Rc::clone(pg_connector);
+        let repo_ok = Rc::clone(pto_repo);
+        let plan_repo_ok = Rc::clone(pto_plan_repo);
+        let holiday_repo_ok = Rc::clone(holiday_repo);
         let dialog = Dialog::new()
             .title("Edit PTO Record")
             .content(
@@ -203,15 +200,11 @@ fn edit_selected_pto(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
                 let available_str = s.call_on_name("available_hours", |v: &mut EditView| v.get_content()).unwrap();
                 let available_val = BigDecimal::parse_bytes(available_str.as_bytes(), 10).unwrap_or_default();
 
-                let mut conn = connector_ok.get_connection();
-                diesel::update(ptos.find(pto_id))
-                    .set(available_hours.eq(available_val))
-                    .execute(&mut *conn)
-                    .expect("Error updating PTO");
+                repo_ok.update(pto_id, pto_record.year, available_val);
 
                 s.pop_layer();
                 s.pop_layer();
-                show_pto_table_view(s, &connector_ok);
+                show_pto_table_view(s, &repo_ok, &plan_repo_ok, &holiday_repo_ok);
             })
             .button("Cancel", |s| {
                 s.pop_layer();
@@ -221,7 +214,7 @@ fn edit_selected_pto(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
     }
 }
 
-fn delete_selected_pto(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
+fn delete_selected_pto(siv: &mut Cursive, pto_repo: &Rc<PtoRepo>, pto_plan_repo: &Rc<PtoPlanRepo>, holiday_repo: &Rc<HolidayHoursRepo>) {
     let selected_id = siv
         .call_on_name("pto_table", |table: &mut TableView<PtoDisplay, PtoColumn>| {
             table.borrow_item(table.row().unwrap()).map(|item| item.id)
@@ -229,17 +222,16 @@ fn delete_selected_pto(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
         .flatten();
 
     if let Some(pto_id) = selected_id {
-        let connector_yes = Rc::clone(pg_connector);
+        let repo_yes = Rc::clone(pto_repo);
+        let plan_repo_yes = Rc::clone(pto_plan_repo);
+        let holiday_repo_yes = Rc::clone(holiday_repo);
         let dialog = Dialog::text("Delete this PTO record?")
             .button("Yes", move |s| {
-                let mut conn = connector_yes.get_connection();
-                diesel::delete(ptos.find(pto_id))
-                    .execute(&mut *conn)
-                    .expect("Error deleting PTO");
+                repo_yes.delete(pto_id);
 
                 s.pop_layer();
                 s.pop_layer();
-                show_pto_table_view(s, &connector_yes);
+                show_pto_table_view(s, &repo_yes, &plan_repo_yes, &holiday_repo_yes);
             })
             .button("No", |s| {
                 s.pop_layer();

@@ -7,11 +7,9 @@ use cursive::Cursive;
 use cursive::traits::*;
 use cursive::views::{Button, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, TextArea};
 use cursive_table_view::{TableView, TableViewItem};
-use diesel::prelude::*;
 
 use crate::models;
-use crate::schema::incomes::dsl::*;
-use crate::db::PgConnector;
+use crate::repositories::IncomeRepo;
 use crate::ui_helpers::toggle_buttons_visible;
 
 // Button name constants
@@ -66,17 +64,12 @@ impl TableViewItem<BasicColumn> for IncomeDisplay {
 
 pub struct IncomeTableView {
     table: TableView<IncomeDisplay,BasicColumn>,
-    pg_connector: Rc<PgConnector>,
+    income_repo: Rc<IncomeRepo>,
 }
 
 impl IncomeTableView {
-    pub fn new(pg_connector: Rc<PgConnector>) -> Self {
-        let results = {
-            let mut conn = pg_connector.get_connection();
-            incomes
-                .load::<models::Income>(&mut *conn)
-                .expect("Error loading incomes")
-        };
+    pub fn new(income_repo: Rc<IncomeRepo>) -> Self {
+        let results = income_repo.find_all();
 
         let income_displays: Vec<IncomeDisplay> = results
             .into_iter()
@@ -88,31 +81,31 @@ impl IncomeTableView {
                 .column(BasicColumn::Date, "Date", |c| c.width_percent(40))
                 .column(BasicColumn::Amount, "Amount", |c| c.width_percent(60))
                 .items(income_displays),
-            pg_connector,
+            income_repo,
         }
     }
 
     pub fn add_table(self, siv: &mut Cursive) {
         siv.pop_layer();
 
-        let connector_add = Rc::clone(&self.pg_connector);
-        let connector_edit = Rc::clone(&self.pg_connector);
-        let connector_duplicate = Rc::clone(&self.pg_connector);
-        let connector_delete = Rc::clone(&self.pg_connector);
+        let repo_add = Rc::clone(&self.income_repo);
+        let repo_edit = Rc::clone(&self.income_repo);
+        let repo_duplicate = Rc::clone(&self.income_repo);
+        let repo_delete = Rc::clone(&self.income_repo);
 
         let buttons = LinearLayout::horizontal()
-            .child(Button::new("Add", move |s| income_form(s, None, &connector_add)))
+            .child(Button::new("Add", move |s| income_form(s, None, &repo_add)))
             .child(HideableView::new(Button::new("Edit", move |s| {
                 let selected = s.call_on_name("income_table", |v: &mut TableView<IncomeDisplay, BasicColumn>| {
                     v.borrow_item(v.item().unwrap()).cloned()
                 }).flatten();
 
                 if let Some(income) = selected {
-                    income_form(s, Some(income), &connector_edit);
+                    income_form(s, Some(income), &repo_edit);
                 }
             })).with_name(INCOME_EDIT_BUTTON))
-            .child(HideableView::new(Button::new("Duplicate", move |s| duplicate_income(s, &connector_duplicate))).with_name(INCOME_DUPLICATE_BUTTON))
-            .child(HideableView::new(Button::new("Delete", move |s| delete_income(s, &connector_delete))).with_name(INCOME_DELETE_BUTTON));
+            .child(HideableView::new(Button::new("Duplicate", move |s| duplicate_income(s, &repo_duplicate))).with_name(INCOME_DUPLICATE_BUTTON))
+            .child(HideableView::new(Button::new("Delete", move |s| delete_income(s, &repo_delete))).with_name(INCOME_DELETE_BUTTON));
 
         let income_count = self.table.len();
         let content = LinearLayout::vertical()
@@ -135,7 +128,7 @@ impl IncomeTableView {
     }
 }
 
-fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>, pg_connector: &Rc<PgConnector>) {
+fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>, income_repo: &Rc<IncomeRepo>) {
     let is_edit = existing.is_some();
     let title = if is_edit { "Edit Income" } else { "Add Income" };
     let button_label = if is_edit { "Update" } else { "Ok" };
@@ -157,7 +150,7 @@ fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>, pg_connector:
         .unwrap_or_default();
 
     let income_id = existing.map(|i| i.id);
-    let connector_form = Rc::clone(pg_connector);
+    let repo_form = Rc::clone(income_repo);
 
     siv.add_layer(
         Dialog::new()
@@ -189,41 +182,19 @@ fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>, pg_connector:
                     return;
                 }
 
-                let mut conn = connector_form.get_connection();
+                let notes_opt = if notes_str.is_empty() { None } else { Some(notes_str.to_string()) };
 
                 if let Some(record_id) = income_id {
-                    // Update existing
-                    diesel::update(incomes.find(record_id))
-                        .set((
-                            date.eq(parsed_date.unwrap()),
-                            amount.eq(amount_bd.unwrap()),
-                            notes.eq(if notes_str.is_empty() { None } else { Some(notes_str.to_string()) }),
-                        ))
-                        .execute(&mut *conn)
-                        .expect("Error updating income");
+                    repo_form.update(record_id, parsed_date.unwrap(), amount_bd.unwrap(), notes_opt);
                 } else {
-                    // Insert new
-                    let new_income = models::NewIncome {
-                        date: parsed_date.unwrap(),
-                        amount: amount_bd.unwrap(),
-                        notes: if notes_str.is_empty() { None } else { Some(notes_str.to_string()) },
-                    };
-
-                    diesel::insert_into(incomes)
-                        .values(&new_income)
-                        .execute(&mut *conn)
-                        .expect("Error saving income");
+                    repo_form.create(parsed_date.unwrap(), amount_bd.unwrap(), notes_opt);
                 }
 
                 // Reload table
-                let results = incomes
-                    .load::<models::Income>(&mut *conn)
-                    .expect("Error loading incomes");
-
-                let income_displays: Vec<IncomeDisplay> = results
+                let income_displays = repo_form.find_all()
                     .into_iter()
-                    .map(|i| i.into())
-                    .collect();
+                    .map(|i| IncomeDisplay::from(i))
+                    .collect::<Vec<_>>();
                 let income_count = income_displays.len();
 
                 s.call_on_name("income_table", |v: &mut TableView<IncomeDisplay, BasicColumn>| {
@@ -243,31 +214,23 @@ fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>, pg_connector:
     );
 }
 
-fn delete_income(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
+fn delete_income(siv: &mut Cursive, income_repo: &Rc<IncomeRepo>) {
     let selected = siv.call_on_name("income_table", |v: &mut TableView<IncomeDisplay, BasicColumn>| {
         v.borrow_item(v.item().unwrap()).cloned()
     }).flatten();
 
     if let Some(income) = selected {
-        let connector_delete = Rc::clone(pg_connector);
+        let repo_delete = Rc::clone(income_repo);
         siv.add_layer(
             Dialog::text("Delete this income?")
                 .button("Yes", move |s| {
-                    let mut conn = connector_delete.get_connection();
-
-                    diesel::delete(incomes.find(income.id))
-                        .execute(&mut *conn)
-                        .expect("Error deleting income");
+                    repo_delete.delete(income.id);
 
                     // Reload table
-                    let results = incomes
-                        .load::<models::Income>(&mut *conn)
-                        .expect("Error loading incomes");
-
-                    let income_displays: Vec<IncomeDisplay> = results
+                    let income_displays = repo_delete.find_all()
                         .into_iter()
-                        .map(|i| i.into())
-                        .collect();
+                        .map(|i| IncomeDisplay::from(i))
+                        .collect::<Vec<_>>();
                     let income_count = income_displays.len();
 
                     s.call_on_name("income_table", |v: &mut TableView<IncomeDisplay, BasicColumn>| {
@@ -283,36 +246,19 @@ fn delete_income(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
     }
 }
 
-fn duplicate_income(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
+fn duplicate_income(siv: &mut Cursive, income_repo: &Rc<IncomeRepo>) {
     let selected = siv.call_on_name("income_table", |v: &mut TableView<IncomeDisplay, BasicColumn>| {
         v.borrow_item(v.item().unwrap()).cloned()
     }).flatten();
 
     if let Some(income) = selected {
-        let mut conn = pg_connector.get_connection();
-
-        // Create new income with today's date
-        let new_income = models::NewIncome {
-            date: Local::now().date_naive(),
-            amount: income.amount,
-            notes: None,
-        };
-
-        diesel::insert_into(incomes)
-            .values(&new_income)
-            .execute(&mut *conn)
-            .expect("Error duplicating income");
+        income_repo.create(Local::now().date_naive(), income.amount, None);
 
         // Reload table
-        let results = incomes
-            .load::<models::Income>(&mut *conn)
-            .expect("Error loading incomes");
-
-        let income_displays: Vec<IncomeDisplay> = results
+        let income_displays = income_repo.find_all()
             .into_iter()
-            .map(|i| i.into())
-            .collect();
-
+            .map(|i| IncomeDisplay::from(i))
+            .collect::<Vec<_>>();
         let income_count = income_displays.len();
 
         siv.call_on_name("income_table", |v: &mut TableView<IncomeDisplay, BasicColumn>| {
