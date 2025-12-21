@@ -68,10 +68,10 @@ pub struct IncomeTableView {
 }
 
 impl IncomeTableView {
-    pub fn new(pg_connector: PgConnector) -> Self {
-        let mut conn = pg_connector.establish_connection();
+    pub fn new(pg_connector: &PgConnector) -> Self {
+        let mut conn = pg_connector.get_connection();
         let results = incomes
-            .load::<models::Income>(&mut conn)
+            .load::<models::Income>(&mut *conn)
             .expect("Error loading incomes");
 
         let income_displays: Vec<IncomeDisplay> = results

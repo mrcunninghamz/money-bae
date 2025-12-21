@@ -21,12 +21,14 @@ use cursive::traits::With;
 use cursive::views::TextView;
 use simplelog::*;
 use std::fs::File;
+use std::rc::Rc;
+use crate::db::PgConnector;
 use crate::dependecy_container::DependencyContainer;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
-    let dc = DependencyContainer::new();
+    let dc = Rc::new(DependencyContainer::new());
     
     // Initialize logging to file (since TUI uses stdio)
     let log_path = std::env::var("HOME")
@@ -125,8 +127,13 @@ fn main() {
 
     siv.add_global_callback('q', |s| s.quit());
     siv.add_global_callback('h', |s| clear(s));
-    siv.add_global_callback('i', move |s| show_income_table(s, &dc));
-    siv.add_global_callback('b', |s| show_bill_table(s));
+    
+    let dc_income = Rc::clone(&dc);
+    siv.add_global_callback('i', move |s| show_income_table(s, &dc_income.pg_connector()));
+    
+    let dc_bill = Rc::clone(&dc);
+    siv.add_global_callback('b', move |s| show_bill_table(s, &dc_bill.pg_connector()));
+    
     siv.add_global_callback('l', |s| show_ledger_table(s));
     siv.add_global_callback('p', |s| show_pto_view(s));
 
@@ -142,14 +149,14 @@ fn main() {
     siv.run();
 }
 
-fn show_income_table(siv: &mut Cursive, dc: &DependencyContainer) {
-    let income_table = income_table::IncomeTableView::new(dc.pg_connector());
+fn show_income_table(siv: &mut Cursive, pg_connector: &PgConnector) {
+    let income_table = income_table::IncomeTableView::new(pg_connector);
 
     income_table.add_table(siv);
 }
 
-fn show_bill_table(siv: &mut Cursive) {
-    let bill_table = bill_table::BillTableView::new();
+fn show_bill_table(siv: &mut Cursive, pg_connector: &PgConnector) {
+    let bill_table = bill_table::BillTableView::new(pg_connector);
 
     bill_table.add_table(siv);
 }

@@ -7,7 +7,7 @@ use cursive::traits::*;
 use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, TextArea};
 use cursive_table_view::{TableView, TableViewItem};
 use diesel::prelude::*;
-use crate::db::establish_connection;
+use crate::db::{establish_connection, PgConnector};
 use crate::models;
 use crate::schema::bills::dsl::*;
 use crate::ui_helpers::toggle_buttons_visible;
@@ -76,10 +76,10 @@ pub struct BillTableView {
 }
 
 impl BillTableView {
-    pub fn new() -> Self {
-        let mut conn = establish_connection();
+    pub fn new(pg_connector: &PgConnector) -> Self {
+        let mut conn = pg_connector.get_connection();
         let results = bills
-            .load::<models::Bill>(&mut conn)
+            .load::<models::Bill>(&mut *conn)
             .expect("Error loading bills");
 
         let bill_displays: Vec<BillDisplay> = results
