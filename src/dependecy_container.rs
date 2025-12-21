@@ -1,10 +1,11 @@
 use std::cell::OnceCell;
+use std::rc::Rc;
 use crate::configuration_manager::ConfigurationManager;
 use crate::db::PgConnector;
 
 pub struct DependencyContainer{
     configuration_manager: OnceCell<ConfigurationManager>,
-    pg_connector: OnceCell<PgConnector>,
+    pg_connector: OnceCell<Rc<PgConnector>>,
 }
 
 impl DependencyContainer {
@@ -19,8 +20,8 @@ impl DependencyContainer {
         self.configuration_manager.get_or_init(|| ConfigurationManager::new())
     }
     
-    pub fn pg_connector(&self) -> &PgConnector {
-        self.pg_connector.get_or_init(|| {
+    pub fn pg_connector(&self) -> Rc<PgConnector> {
+        Rc::clone(self.pg_connector.get_or_init(|| {
             let config_manager = self.configuration_manager();
             let connection_string = config_manager
                 .get_database_connection_string()
@@ -28,7 +29,7 @@ impl DependencyContainer {
                     panic!("database_connection_string not found in configuration file.")
                 })
                 .to_string();
-            PgConnector::new(connection_string)
-        })
+            Rc::new(PgConnector::new(connection_string))
+        }))
     }
 }

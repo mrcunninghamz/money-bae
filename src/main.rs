@@ -129,12 +129,14 @@ fn main() {
     siv.add_global_callback('h', |s| clear(s));
     
     let dc_income = Rc::clone(&dc);
-    siv.add_global_callback('i', move |s| show_income_table(s, &dc_income.pg_connector()));
+    siv.add_global_callback('i', move |s| show_income_table(s, &dc_income));
     
     let dc_bill = Rc::clone(&dc);
-    siv.add_global_callback('b', move |s| show_bill_table(s, &dc_bill.pg_connector()));
+    siv.add_global_callback('b', move |s| show_bill_table(s, &dc_bill));
     
-    siv.add_global_callback('l', |s| show_ledger_table(s));
+    let dc_ledger = Rc::clone(&dc);
+    siv.add_global_callback('l', move |s| show_ledger_table(s, &dc_ledger));
+    
     siv.add_global_callback('p', |s| show_pto_view(s));
 
 
@@ -149,20 +151,20 @@ fn main() {
     siv.run();
 }
 
-fn show_income_table(siv: &mut Cursive, pg_connector: &PgConnector) {
-    let income_table = income_table::IncomeTableView::new(pg_connector);
+fn show_income_table(siv: &mut Cursive, dc: &DependencyContainer) {
+    let income_table = income_table::IncomeTableView::new(&dc.pg_connector());
 
     income_table.add_table(siv);
 }
 
-fn show_bill_table(siv: &mut Cursive, pg_connector: &PgConnector) {
-    let bill_table = bill_table::BillTableView::new(pg_connector);
+fn show_bill_table(siv: &mut Cursive, dc: &DependencyContainer) {
+    let bill_table = bill_table::BillTableView::new(dc.pg_connector());
 
     bill_table.add_table(siv);
 }
 
-fn show_ledger_table(siv: &mut Cursive) {
-    let ledger_table = ledger_table::LedgerTableView::new();
+fn show_ledger_table(siv: &mut Cursive, dc: &DependencyContainer) {
+    let ledger_table = ledger_table::LedgerTableView::new(dc.pg_connector());
 
     ledger_table.add_table(siv);
 }

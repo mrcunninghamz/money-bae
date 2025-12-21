@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::rc::Rc;
 use bigdecimal::BigDecimal;
 use chrono::{Datelike, Local, NaiveDate, ParseResult};
 use cursive::Cursive;
@@ -9,7 +10,7 @@ use diesel::prelude::*;
 
 use crate::models;
 use crate::schema::ledgers::dsl::*;
-use crate::db::establish_connection;
+use crate::db::PgConnector;
 use crate::ui_helpers::toggle_buttons_visible;
 
 // Button name constants
@@ -89,14 +90,17 @@ impl TableViewItem<BasicColumn> for LedgerDisplay {
 
 pub struct LedgerTableView {
     table: TableView<LedgerDisplay, BasicColumn>,
+    pg_connector: Rc<PgConnector>,
 }
 
 impl LedgerTableView {
-    pub fn new() -> Self {
-        let mut conn = establish_connection();
-        let results = ledgers
-            .load::<models::Ledger>(&mut conn)
-            .expect("Error loading ledgers");
+    pub fn new(pg_connector: Rc<PgConnector>) -> Self {
+        let results = {
+            let mut conn = pg_connector.get_connection();
+            ledgers
+                .load::<models::Ledger>(&mut *conn)
+                .expect("Error loading ledgers")
+        };
 
         let ledger_displays: Vec<LedgerDisplay> = results
             .into_iter()
@@ -110,26 +114,31 @@ impl LedgerTableView {
                 .column(BasicColumn::Total, "Available Funds", |c| c.width_percent(20))
                 .column(BasicColumn::Expenses, "Expenses", |c| c.width_percent(20))
                 .column(BasicColumn::Net, "Net", |c| c.width_percent(20))
-                .items(ledger_displays)
+                .items(ledger_displays),
+            pg_connector,
         }
     }
 
     pub fn add_table(self, siv: &mut Cursive) {
         siv.pop_layer();
 
+        let connector_add = Rc::clone(&self.pg_connector);
+        let connector_duplicate = Rc::clone(&self.pg_connector);
+        let connector_delete = Rc::clone(&self.pg_connector);
+
         let buttons = LinearLayout::horizontal()
-            .child(Button::new("Add", |s| add_ledger_dialog(s, None)))
+            .child(Button::new("Add", move |s| add_ledger_dialog(s, None, &connector_add)))
             .child(HideableView::new(Button::new("View", |s| view_ledger_detail(s))).with_name(LEDGER_VIEW_BUTTON))
-            .child(HideableView::new(Button::new("Duplicate", |s| {
+            .child(HideableView::new(Button::new("Duplicate", move |s| {
                 let selected = s.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
                     v.borrow_item(v.item().unwrap()).cloned()
                 }).flatten();
 
                 if let Some(ledger) = selected {
-                    add_ledger_dialog(s, Some(ledger));
+                    add_ledger_dialog(s, Some(ledger), &connector_duplicate);
                 }
             })).with_name(LEDGER_DUPLICATE_BUTTON))
-            .child(HideableView::new(Button::new("Delete", |s| delete_ledger(s))).with_name(LEDGER_DELETE_BUTTON));
+            .child(HideableView::new(Button::new("Delete", move |s| delete_ledger(s, &connector_delete))).with_name(LEDGER_DELETE_BUTTON));
 
         let ledger_count = self.table.len();
         let content = LinearLayout::vertical()
@@ -152,7 +161,7 @@ impl LedgerTableView {
     }
 }
 
-fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
+fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>, pg_connector: &Rc<PgConnector>) {
     let is_duplicating = existing.is_some();
 
     let title = if is_duplicating { "Duplicate Ledger" } else { "Add Ledger" };
@@ -169,16 +178,18 @@ fn add_ledger_dialog(siv: &mut Cursive, existing: Option<LedgerDisplay>) {
         .unwrap_or_default();
 
     let button_label = if is_duplicating { "Duplicate" } else { "Ok" };
+    
+    let connector = Rc::clone(pg_connector);
 
     siv.add_layer(
         Dialog::new()
             .title(title)
             .button(button_label, move |s| {
                 if is_duplicating {
-                    duplicate_ledger(s, existing.clone());
+                    duplicate_ledger(s, existing.clone(), &connector);
                 }
                 else {
-                    add_ledger(s);
+                    add_ledger(s, &connector);
                 }
 
             })
@@ -219,7 +230,7 @@ fn get_form_values(s: &mut Cursive) -> (ParseResult<NaiveDate>, String, String) 
 
     (parsed_date, ledger_name.to_string(), notes_str.to_string())
 }
-fn add_ledger(s: &mut Cursive) {
+fn add_ledger(s: &mut Cursive, pg_connector: &PgConnector) {
     let (parsed_date, ledger_name, notes_str) = get_form_values(s);
 
     if parsed_date.is_err() {
@@ -227,7 +238,7 @@ fn add_ledger(s: &mut Cursive) {
         return;
     }
 
-    let mut conn = establish_connection();
+    let mut conn = pg_connector.get_connection();
     let new_ledger = models::NewLedger {
         date: parsed_date.unwrap(),
         name: ledger_name.to_string(),
@@ -237,12 +248,12 @@ fn add_ledger(s: &mut Cursive) {
 
     diesel::insert_into(ledgers)
         .values(&new_ledger)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .expect("Error saving ledger");
 
     // Reload table
     let results = ledgers
-        .load::<models::Ledger>(&mut conn)
+        .load::<models::Ledger>(&mut *conn)
         .expect("Error loading ledgers");
 
     let ledger_displays: Vec<LedgerDisplay> = results
@@ -259,7 +270,7 @@ fn add_ledger(s: &mut Cursive) {
     toggle_buttons_visible(s, ledger_count, TOGGLE_BUTTONS);
 }
 
-fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
+fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>, pg_connector: &PgConnector) {
 
     if let Some(ledger) = selected {
         let (parsed_date, ledger_name, notes_str) = get_form_values(s);
@@ -277,14 +288,14 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
             date: parsed_date.unwrap(),
             name: ledger_name,
             bank_balance: BigDecimal::from(0),
-            notes: if notes_str.is_empty() { None } else { Some(notes_str) },
+            notes: if notes_str.is_empty() { None} else { Some(notes_str) },
         };
 
-        let mut conn = establish_connection();
+        let mut conn = pg_connector.get_connection();
 
         let new_ledger_record: models::Ledger = diesel::insert_into(ledgers)
             .values(&new_ledger)
-            .get_result(&mut conn)
+            .get_result(&mut *conn)
             .expect("Error duplicating ledger");
 
         // Duplicate ledger bills
@@ -293,14 +304,14 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
 
         let old_ledger_bills = ledger_bills::table
             .filter(ledger_bills::ledger_id.eq(ledger.id))
-            .load::<models::LedgerBill>(&mut conn)
+            .load::<models::LedgerBill>(&mut *conn)
             .expect("Error loading ledger bills");
 
         for old_bill in old_ledger_bills {
             // Get the bill to check is_auto_pay
             let bill = bills::table
                 .find(old_bill.bill_id)
-                .first::<models::Bill>(&mut conn)
+                .first::<models::Bill>(&mut *conn)
                 .expect("Error loading bill");
 
             // Update due_day to new ledger's month if it exists
@@ -319,13 +330,13 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
 
             diesel::insert_into(ledger_bills::table)
                 .values(&new_ledger_bill)
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .expect("Error duplicating ledger bill");
         }
 
         // Reload table
         let results = ledgers
-            .load::<models::Ledger>(&mut conn)
+            .load::<models::Ledger>(&mut *conn)
             .expect("Error loading ledgers");
 
         let ledger_displays: Vec<LedgerDisplay> = results
@@ -345,24 +356,25 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>) {
     }
 }
 
-fn delete_ledger(siv: &mut Cursive) {
+fn delete_ledger(siv: &mut Cursive, pg_connector: &Rc<PgConnector>) {
     let selected = siv.call_on_name("ledger_table", |v: &mut TableView<LedgerDisplay, BasicColumn>| {
         v.borrow_item(v.item().unwrap()).cloned()
     }).flatten();
 
     if let Some(ledger) = selected {
+        let connector = Rc::clone(pg_connector);
         siv.add_layer(
             Dialog::text("Delete this ledger?")
                 .button("Yes", move |s| {
-                    let mut conn = establish_connection();
+                    let mut conn = connector.get_connection();
 
                     diesel::delete(ledgers.find(ledger.id))
-                        .execute(&mut conn)
+                        .execute(&mut *conn)
                         .expect("Error deleting ledger");
 
                     // Reload table
                     let results = ledgers
-                        .load::<models::Ledger>(&mut conn)
+                        .load::<models::Ledger>(&mut *conn)
                         .expect("Error loading ledgers");
 
                     let ledger_displays: Vec<LedgerDisplay> = results

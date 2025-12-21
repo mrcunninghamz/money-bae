@@ -5,7 +5,7 @@ use std::env;
 use std::cell::RefCell;
 
 pub struct PgConnector {
-    pub connection: RefCell<PgConnection>
+    connection: RefCell<PgConnection>
 }
 
 impl PgConnector {
