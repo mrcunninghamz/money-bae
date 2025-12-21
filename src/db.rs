@@ -2,24 +2,21 @@ use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use dotenvy::dotenv;
 use std::env;
-use std::cell::RefCell;
 
 pub struct PgConnector {
-    connection: RefCell<PgConnection>
+    connection: PgConnection,
 }
 
 impl PgConnector {
     pub fn new(connection_string: String) -> Self {
         Self {
-            connection: RefCell::new(
-                PgConnection::establish(connection_string.as_str())
-                    .unwrap_or_else(|_| panic!("Error connecting to {}", connection_string))
-            )
+            connection: PgConnection::establish(connection_string.as_str())
+                .unwrap_or_else(|_| panic!("Error connecting to {}", connection_string)),
         }
     }
-    
-    pub fn get_connection(&self) -> std::cell::RefMut<'_, PgConnection> {
-        self.connection.borrow_mut()
+
+    pub fn get_connection(&mut self) -> &mut PgConnection {
+        &mut self.connection
     }
 }
 
