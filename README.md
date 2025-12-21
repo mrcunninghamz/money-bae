@@ -47,9 +47,6 @@ cd money-bae
 # Create .env file with your PostgreSQL connection
 echo "MONEYBAE_DATABASE_URL=postgres://username@localhost/money_bae" > .env
 
-# For system-wide installation, add to ~/.zshrc (or ~/.bashrc)
-echo 'export MONEYBAE_DATABASE_URL="postgres://username@localhost/money_bae"' >> ~/.zshrc
-source ~/.zshrc
 ```
 
 3. Run migrations:
