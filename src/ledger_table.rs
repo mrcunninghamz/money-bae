@@ -271,7 +271,7 @@ fn add_ledger(s: &mut Cursive, pg_connector: &Rc<PgConnector>) {
     toggle_buttons_visible(s, ledger_count, TOGGLE_BUTTONS);
 }
 
-fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>, pg_connector: &PgConnector) {
+fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>, pg_connector: &Rc<PgConnector>) {
 
     if let Some(ledger) = selected {
         let (parsed_date, ledger_name, notes_str) = get_form_values(s);
