@@ -289,7 +289,7 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>, pg_connect
             date: parsed_date.unwrap(),
             name: ledger_name,
             bank_balance: BigDecimal::from(0),
-            notes: if notes_str.is_empty() { None} else { Some(notes_str) },
+            notes: if notes_str.is_empty() { None } else { Some(notes_str) },
         };
 
         let mut conn = pg_connector.get_connection();
