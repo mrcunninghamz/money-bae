@@ -42,16 +42,26 @@ git clone git@github.com:mrcunninghamz/money-bae.git
 cd money-bae
 ```
 
-2. Configure database:
+2. Set up databases:
 ```bash
-# Create .env file with your PostgreSQL connection
-echo "MONEYBAE_DATABASE_URL=postgres://username@localhost/money_bae" > .env
+# Create development and production databases
+createdb money_bae_dev
+createdb money_bae
 
+# Switch to development environment
+./use-dev-env.sh
+
+# Run migrations on dev database
+diesel migration run
 ```
 
-3. Run migrations:
+3. Configure application:
 ```bash
-diesel migration run
+# Edit development config (auto-created on first run)
+vi ~/.config/money-bae-dev/money-bae-dev.toml
+
+# Add your database connection string:
+# database_connection_string = "postgres://username@localhost/money_bae_dev"
 ```
 
 4. Build and run:
@@ -117,24 +127,63 @@ cargo install --path .
 
 Application configuration is managed using `confy` and follows the XDG Base Directory specification.
 
+### Development vs Production
+
+The application uses separate configs based on build profile:
+- **Development** (`cargo run`): Uses `money-bae-dev` config
+- **Production** (`cargo run --release` or installed binary): Uses `money-bae` config
+
 ### Configuration File Location
 
-| Platform | Path |
-|----------|------|
-| **Linux** | `$XDG_CONFIG_HOME/money-bae/` or `$HOME/.config/money-bae/` |
-| **macOS** | `$HOME/.config/money-bae/` |
-| **Windows** | `{FOLDERID_RoamingAppData}/money-bae/config/` |
+| Environment | Path |
+|-------------|------|
+| **Development** | `~/.config/money-bae-dev/money-bae-dev.toml` |
+| **Production** | `~/.config/money-bae/money-bae.toml` |
 
-The configuration file will be automatically created on first run with default values.
+Configuration files are automatically created on first run with default values.
 
 ### Editing Configuration
 
 ```bash
-# On Linux/macOS
-vi ~/.config/money-bae/money-bae.toml
+# Development config
+vi ~/.config/money-bae-dev/money-bae-dev.toml
 
-# View current configuration
-cat ~/.config/money-bae/money-bae.toml
+# Production config
+vi ~/.config/money-bae/money-bae.toml
+```
+
+**Required setting:**
+```toml
+database_connection_string = "postgres://username@localhost/database_name"
+```
+
+### Database Environment Files
+
+Diesel CLI uses `.env` files for migrations:
+- `.env.dev` - Development database
+- `.env.prod` - Production database
+
+**Helper scripts:**
+```bash
+# Switch to dev environment
+./use-dev-env.sh
+
+# Switch to prod environment
+./use-prod-env.sh
+```
+
+### Production Database Workflow
+
+**Always backup before migrations:**
+```bash
+# Backup production database
+./backup-db.sh money_bae
+
+# Switch to production environment
+./use-prod-env.sh
+
+# Run migrations
+diesel migration run
 ```
 
 ## Logs

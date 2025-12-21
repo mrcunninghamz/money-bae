@@ -7,7 +7,12 @@ pub struct ConfigurationManager {
 
 impl ConfigurationManager {
     pub fn new() -> Self {
-        confy::load("money-bae", None).unwrap_or_default()
+        let config_name = if cfg!(debug_assertions) {
+            "money-bae-dev"
+        } else {
+            "money-bae"
+        };
+        confy::load(config_name, None).unwrap_or_default()
     }
 
     pub fn get_database_connection_string(&self) -> Option<&str> {
