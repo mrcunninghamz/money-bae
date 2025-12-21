@@ -69,6 +69,21 @@ fn main() {
 
     log::info!("money-bae v{} started", VERSION);
 
+    // Validate configuration before starting UI
+    let config_manager = dc.configuration_manager();
+    if config_manager.get_database_connection_string().is_none() {
+        let config_name = configuration_manager::ConfigurationManager::get_config_name();
+        eprintln!("\n❌ Configuration Error: database_connection_string not set");
+        eprintln!("\nPlease edit your {}.toml configuration file.", config_name);
+        eprintln!("(Location depends on your OS - see README or confy documentation)");
+        eprintln!("\nAdd the following line:");
+        eprintln!("  database_connection_string = \"postgres://username@localhost/database_name\"");
+        eprintln!("\nExample for development:");
+        eprintln!("  database_connection_string = \"postgres://{}@localhost/money_bae_dev\"", 
+            std::env::var("USER").unwrap_or_else(|_| "username".to_string()));
+        std::process::exit(1);
+    }
+
     // Handle CLI arguments
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 {

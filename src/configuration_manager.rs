@@ -18,5 +18,13 @@ impl ConfigurationManager {
     pub fn get_database_connection_string(&self) -> Option<&str> {
         self.database_connection_string.as_ref().map(|s| s.as_str())
     }
+
+    pub fn get_config_name() -> &'static str {
+        if cfg!(debug_assertions) {
+            "money-bae-dev"
+        } else {
+            "money-bae"
+        }
+    }
 }
 
