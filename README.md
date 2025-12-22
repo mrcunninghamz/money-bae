@@ -289,6 +289,25 @@ cargo test
 cargo build --release
 ```
 
+### Windows Development
+
+On Windows, you need to set the PostgreSQL library path before running cargo commands:
+
+```powershell
+# Set PostgreSQL library path (adjust version number if needed)
+$env:PQ_LIB_DIR = "C:\Program Files\PostgreSQL\18\lib"
+
+# Then run cargo commands
+cargo check
+cargo build
+cargo run
+
+# Or combine in one line
+$env:PQ_LIB_DIR = "C:\Program Files\PostgreSQL\18\lib"; cargo run
+```
+
+**Note:** As of v0.9.0, the app uses the `crossterm` backend and compiles on Windows, Linux, and macOS.
+
 ## License
 
 MIT
