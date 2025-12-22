@@ -42,11 +42,25 @@ git clone git@github.com:mrcunninghamz/money-bae.git
 cd money-bae
 ```
 
-2. Set up databases:
+2. Set up environment files:
 ```bash
-# Create development and production databases
+# Copy example files to create your environment files
+cp .env.dev.example .env.dev
+cp .env.prod.example .env.prod
+
+# Edit with your database URLs
+vi .env.dev
+vi .env.prod
+```
+
+3. Set up databases:
+```bash
+# For local databases:
 createdb money_bae_dev
 createdb money_bae
+
+# For Azure PostgreSQL, use connection strings from Terraform outputs
+# Example: postgres://username:password@psql-mb-core-cus-dev.postgres.database.azure.com/money_bae?sslmode=require
 
 # Switch to development environment
 ./use-dev-env.sh
@@ -55,16 +69,17 @@ createdb money_bae
 diesel migration run
 ```
 
-3. Configure application:
+4. Configure application:
 ```bash
 # Edit development config (auto-created on first run)
 vi ~/.config/money-bae-dev/money-bae-dev.toml
 
 # Add your database connection string:
-# database_connection_string = "postgres://username@localhost/money_bae_dev"
+# For local: database_connection_string = "postgres://username@localhost/money_bae_dev"
+# For Azure: database_connection_string = "postgres://username:password@psql-mb-core-cus-dev.postgres.database.azure.com/money_bae?sslmode=require"
 ```
 
-4. Build and run:
+5. Build and run:
 ```bash
 cargo run
 ```
@@ -159,9 +174,25 @@ database_connection_string = "postgres://username@localhost/database_name"
 
 ### Database Environment Files
 
-Diesel CLI uses `.env` files for migrations:
-- `.env.dev` - Development database
-- `.env.prod` - Production database
+Diesel CLI uses `.env` files for migrations. **Never commit these files - they contain credentials.**
+
+**Setup:**
+```bash
+# Copy example files
+cp .env.dev.example .env.dev
+cp .env.prod.example .env.prod
+
+# Edit with your database URLs
+vi .env.dev   # Development database URL
+vi .env.prod  # Production database URL
+```
+
+**Files:**
+- `.env.dev.example` - Template for dev database (tracked in git)
+- `.env.prod.example` - Template for prod database (tracked in git)
+- `.env.dev` - Actual dev database URL (gitignored, contains credentials)
+- `.env.prod` - Actual prod database URL (gitignored, contains credentials)
+- `.env` - Active env (gitignored, created by helper scripts)
 
 **Helper scripts:**
 ```bash
