@@ -20,10 +20,26 @@ Determined by `cfg!(debug_assertions)` in `configuration_manager.rs`.
 
 ### Database Setup
 
-**Create databases:**
+**Create environment files from examples:**
 ```bash
+cp .env.dev.example .env.dev
+cp .env.prod.example .env.prod
+```
+
+**Edit with your database URLs:**
+```bash
+# For local databases:
 createdb money_bae_dev
 createdb money_bae
+
+# .env.dev
+DATABASE_URL=postgres://username@localhost/money_bae_dev
+
+# .env.prod
+DATABASE_URL=postgres://username@localhost/money_bae
+
+# For Azure PostgreSQL (from Terraform outputs):
+# DATABASE_URL=postgres://username:password@psql-mb-core-cus-dev.postgres.database.azure.com/money_bae?sslmode=require
 ```
 
 **Configure via confy files:**
@@ -51,9 +67,13 @@ diesel migration run
 ```
 
 **Files:**
-- `.env.dev` - Dev database URL (tracked in git)
-- `.env.prod` - Prod database URL (tracked in git)
+- `.env.dev.example` - Template for dev database (tracked in git)
+- `.env.prod.example` - Template for prod database (tracked in git)
+- `.env.dev` - Actual dev database URL (gitignored, contains credentials)
+- `.env.prod` - Actual prod database URL (gitignored, contains credentials)
 - `.env` - Active env (gitignored, created by helper scripts)
+
+**⚠️ NEVER commit `.env`, `.env.dev`, or `.env.prod` - they contain database credentials**
 
 ## Build & Run Commands
 
