@@ -34,6 +34,25 @@ Terminal UI personal finance tracker built with Rust.
 - PostgreSQL
 - Diesel CLI: `cargo install diesel_cli --no-default-features --features postgres`
 
+**Important**: If you upgrade PostgreSQL versions:
+1. Update shell environment (e.g., `~/.zshenv`):
+   ```bash
+   export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
+   export PQ_LIB_DIR="/opt/homebrew/lib/postgresql@17"
+   ```
+2. Update `.cargo/config.toml` with the correct paths:
+   ```toml
+   [env]
+   PQ_LIB_DIR = "/opt/homebrew/lib/postgresql@17"  # Update version number
+
+   [target.aarch64-apple-darwin]
+   rustflags = ["-L", "/opt/homebrew/lib/postgresql@17"]  # Update version number
+   ```
+3. Reinstall diesel_cli:
+   ```bash
+   cargo install diesel_cli --no-default-features --features postgres --force
+   ```
+
 ## Setup
 
 1. Clone the repository:
