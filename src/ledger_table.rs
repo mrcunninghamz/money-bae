@@ -12,6 +12,7 @@ use crate::models;
 use crate::repositories::ledger_repo::LedgerRepo;
 use crate::db::PgConnector;
 use crate::ui_helpers::toggle_buttons_visible;
+use crate::ledger_detail::calculate_bill_due_date;
 
 // Button name constants
 const LEDGER_VIEW_BUTTON: &str = "ledger_table_view_button";
@@ -303,9 +304,7 @@ fn duplicate_ledger(s: &mut Cursive, selected: Option<LedgerDisplay>, ledger_rep
                     .expect("Error loading bill");
 
                 // Update due_day to new ledger's month if it exists
-                let updated_due_day = old_bill.due_day.map(|old_date| {
-                    new_ledger_record.date.with_day(old_date.day()).unwrap_or(new_ledger_record.date)
-                });
+                let updated_due_day = calculate_bill_due_date(old_bill.due_day, new_ledger_record.date);
 
                 let new_ledger_bill = models::NewLedgerBill {
                     ledger_id: new_ledger_record.id,
