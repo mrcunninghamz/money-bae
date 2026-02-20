@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::rc::Rc;
 use bigdecimal::BigDecimal;
-use chrono::{Datelike, NaiveDate};
+use chrono::{Datelike, Months, NaiveDate};
 use cursive::Cursive;
 use cursive::traits::*;
 use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLayout, ListView, Panel, SelectView, TextArea, TextView};
@@ -12,6 +12,22 @@ use crate::models;
 use crate::schema;
 use crate::repositories::ledger_repo::LedgerRepo;
 use crate::ui_helpers::toggle_buttons_visible;
+
+// Helper function to calculate bill due date for a ledger
+// If bill's day-of-month in ledger's month is before ledger date, advance to next month
+pub fn calculate_bill_due_date(bill_day: Option<NaiveDate>, ledger_date: NaiveDate) -> Option<NaiveDate> {
+    bill_day.and_then(|d| {
+        // Create date with bill's day in ledger's month/year
+        let mut due_date = ledger_date.with_day(d.day())?;
+        
+        // If due date is before ledger date, advance to next month
+        if due_date < ledger_date {
+            due_date = due_date.checked_add_months(Months::new(1))?;
+        }
+        
+        Some(due_date)
+    })
+}
 
 // Button name constants
 const BILL_EDIT_BUTTON: &str = "ledger_bill_edit_button";
@@ -350,7 +366,7 @@ fn delete_income_from_ledger(siv: &mut Cursive, ledger_id: i32, ledger_repo: &Rc
 
 fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32, ledger_repo: &Rc<LedgerRepo>) {
     let pg_connector = ledger_repo.pg_connector();
-    let (ledger_month, ledger_year, available_bills) = {
+    let (ledger_date, ledger_month, ledger_year, available_bills) = {
         let mut conn = pg_connector.get_connection();
 
         // Get ledger to find its month
@@ -359,6 +375,7 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32, ledger_repo: &Rc<Ledger
             .first::<models::Ledger>(&mut *conn)
             .expect("Error loading ledger");
 
+        let date = ledger.date;
         let month = ledger.date.month();
         let year = ledger.date.year();
 
@@ -375,7 +392,7 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32, ledger_repo: &Rc<Ledger
 
         bills.retain(|b| !existing_bill_ids.contains(&b.id));
 
-        (month, year, bills)
+        (date, month, year, bills)
     };
 
     if available_bills.is_empty() {
@@ -402,14 +419,8 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32, ledger_repo: &Rc<Ledger
                 if let Some(bill_data_rc) = bill_data {
                     let (bill_id, amount, due_day, autopay) = (*bill_data_rc).clone();
                     
-                    // Create due_day for this ledger (use bill's day with ledger's month/year)
-                    let ledger_due_day = due_day.and_then(|d| {
-                        chrono::NaiveDate::from_ymd_opt(
-                            ledger_year,
-                            ledger_month,
-                            d.day()
-                        )
-                    });
+                    // Calculate due date for this ledger with auto-adjustment
+                    let ledger_due_day = calculate_bill_due_date(due_day, ledger_date);
 
                     repo_add.create_ledger_bill(ledger_id, bill_id, amount, ledger_due_day, autopay, None);
 
