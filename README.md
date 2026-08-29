@@ -226,8 +226,11 @@ vi .env.prod  # Production database URL
 
 **Always backup before migrations:**
 ```bash
-# Backup production database
-./backup-db.sh money_bae
+# Backup production database (uses .env.prod)
+./backup-db.sh prod
+
+# Optional: custom backup filename
+./backup-db.sh prod my_special_backup.dump
 
 # Switch to production environment
 ./use-prod-env.sh
