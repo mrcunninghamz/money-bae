@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use std::rc::Rc;
-use std::str::FromStr;
 use bigdecimal::BigDecimal;
 use chrono::{Datelike, Local, NaiveDate};
 use cursive::Cursive;
@@ -9,7 +8,7 @@ use cursive::views::{Button, Checkbox, Dialog, EditView, HideableView, LinearLay
 use cursive_table_view::{TableView, TableViewItem};
 use crate::models;
 use crate::repositories::bill_repo::BillRepo;
-use crate::ui_helpers::toggle_buttons_visible;
+use crate::ui_helpers::{format_currency, parse_currency, toggle_buttons_visible};
 
 // Button name constants
 const BILL_EDIT_BUTTON: &str = "bill_table_edit_button";
@@ -51,7 +50,7 @@ impl TableViewItem<BasicColumn> for BillDisplay {
     fn to_column(&self, column: BasicColumn) -> String {
         match column {
             BasicColumn::Name => self.name.to_string(),
-            BasicColumn::Amount => self.amount.to_string(),
+            BasicColumn::Amount => format_currency(&self.amount),
             BasicColumn::DueDay => self.due_day.map_or("-".to_string(), |d| d.to_string()),
             BasicColumn::IsAutoPay => self.is_auto_pay.to_string()
         }
@@ -148,7 +147,7 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>, bill_repo: &Rc<Bi
 
     let amount_value = existing
         .as_ref()
-        .map(|b| b.amount.to_string())
+        .map(|b| format_currency(&b.amount))
         .unwrap_or_default();
 
     let due_day_value = existing
@@ -200,7 +199,7 @@ fn bill_form(siv: &mut Cursive, existing: Option<BillDisplay>, bill_repo: &Rc<Bi
                 }
 
                 // Validate amount
-                let amount_bd = BigDecimal::from_str(&amount_str);
+                let amount_bd = parse_currency(&amount_str);
                 if amount_bd.is_err() {
                     s.add_layer(Dialog::info("Invalid amount format"));
                     return;

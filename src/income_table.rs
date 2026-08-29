@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use std::rc::Rc;
-use std::str::FromStr;
 use bigdecimal::BigDecimal;
 use chrono::{Local, NaiveDate};
 use cursive::Cursive;
@@ -10,7 +9,7 @@ use cursive_table_view::{TableView, TableViewItem};
 
 use crate::models;
 use crate::repositories::IncomeRepo;
-use crate::ui_helpers::toggle_buttons_visible;
+use crate::ui_helpers::{format_currency, parse_currency, toggle_buttons_visible};
 
 // Button name constants
 const INCOME_EDIT_BUTTON: &str = "income_table_edit_button";
@@ -47,7 +46,7 @@ impl TableViewItem<BasicColumn> for IncomeDisplay {
     fn to_column(&self, column: BasicColumn) -> String {
         match column {
             BasicColumn::Date => self.date.format("%d/%m/%Y").to_string(),
-            BasicColumn::Amount => self.amount.to_string(),
+            BasicColumn::Amount => format_currency(&self.amount),
         }
     }
 
@@ -141,7 +140,7 @@ fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>, income_repo: 
 
     let amount_value = existing
         .as_ref()
-        .map(|i| i.amount.to_string())
+        .map(|i| format_currency(&i.amount))
         .unwrap_or_default();
     
     let notes_value = existing
@@ -170,7 +169,7 @@ fn income_form(siv: &mut Cursive, existing: Option<IncomeDisplay>, income_repo: 
 
                 // Validate date format DD/MM/YYYY
                 let parsed_date = NaiveDate::parse_from_str(&date_str, "%d/%m/%Y");
-                let amount_bd = BigDecimal::from_str(&amount_str);
+                let amount_bd = parse_currency(&amount_str);
 
                 if parsed_date.is_err() {
                     s.add_layer(Dialog::info("Invalid date format. Use DD/MM/YYYY"));
