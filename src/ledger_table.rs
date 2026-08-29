@@ -11,7 +11,7 @@ use diesel::prelude::*;
 use crate::models;
 use crate::repositories::ledger_repo::LedgerRepo;
 use crate::db::PgConnector;
-use crate::ui_helpers::toggle_buttons_visible;
+use crate::ui_helpers::{format_currency, toggle_buttons_visible};
 use crate::ledger_detail::calculate_bill_due_date;
 
 // Button name constants
@@ -64,11 +64,11 @@ impl TableViewItem<BasicColumn> for LedgerDisplay {
     fn to_column(&self, column: BasicColumn) -> String {
         match column {
             BasicColumn::Date => self.date.format("%d/%m/%Y").to_string(),
-            BasicColumn::BankBalance => format!("${}", self.bank_balance),
-            BasicColumn::Income => format!("${}", self.income),
-            BasicColumn::Expenses => format!("${}", self.expenses),
-            BasicColumn::Net => format!("${}", self.net),
-            BasicColumn::Total => format!("${}", self.total),
+            BasicColumn::BankBalance => format_currency(&self.bank_balance),
+            BasicColumn::Income => format_currency(&self.income),
+            BasicColumn::Expenses => format_currency(&self.expenses),
+            BasicColumn::Net => format_currency(&self.net),
+            BasicColumn::Total => format_currency(&self.total),
             BasicColumn::Name => self.name.clone(),
         }
     }

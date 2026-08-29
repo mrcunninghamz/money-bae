@@ -11,7 +11,7 @@ use diesel::prelude::*;
 use crate::models;
 use crate::schema;
 use crate::repositories::ledger_repo::LedgerRepo;
-use crate::ui_helpers::toggle_buttons_visible;
+use crate::ui_helpers::{format_currency, parse_currency, toggle_buttons_visible};
 
 // Helper function to calculate bill due date for a ledger
 // If bill's day-of-month in ledger's month is before ledger date, advance to next month
@@ -74,7 +74,7 @@ impl TableViewItem<BillColumn> for LedgerBillDisplay {
     fn to_column(&self, column: BillColumn) -> String {
         match column {
             BillColumn::Name => self.bill_name.clone(),
-            BillColumn::Amount => format!("${}", self.amount),
+            BillColumn::Amount => format_currency(&self.amount),
             BillColumn::DueDay => self.due_day.clone(),
             BillColumn::Paid => if self.is_payed { "✓" } else { "" }.to_string(),
         }
@@ -94,7 +94,7 @@ impl TableViewItem<IncomeColumn> for IncomeDisplay {
     fn to_column(&self, column: IncomeColumn) -> String {
         match column {
             IncomeColumn::Date => self.date.clone(),
-            IncomeColumn::Amount => format!("${}", self.amount),
+            IncomeColumn::Amount => format_currency(&self.amount),
         }
     }
 
@@ -194,27 +194,27 @@ pub fn show_ledger_detail(siv: &mut Cursive, target_ledger_id: i32, ledger_repo:
     };
     
     let summary_text = format!(
-        "Bank Balance: ${}\n\
-         Income: ${} ({} items)\n\
-         Available Funds: ${}\n\n\
+        "Bank Balance: {}\n\
+         Income: {} ({} items)\n\
+         Available Funds: {}\n\n\
          BILLS         PLANNED     PAID\n\
          ─────────────────────────────\n\
-         Amount        ${}    ${}\n\
+         Amount        {}    {}\n\
          Count         {}          {}\n\n\
-         Total Expenses: ${}\n\n\
+         Total Expenses: {}\n\n\
          ───────────────────────────────\n\
-         Net: ${}\n\
+         Net: {}\n\
          {}",
-        ledger.bank_balance,
-        ledger.income,
+        format_currency(&ledger.bank_balance),
+        format_currency(&ledger.income),
         income_count,
-        ledger.total.unwrap_or(BigDecimal::from(0)),
-        unpaid_bills_amount,
-        paid_bills_amount,
+        format_currency(&ledger.total.unwrap_or(BigDecimal::from(0))),
+        format_currency(&unpaid_bills_amount),
+        format_currency(&paid_bills_amount),
         unpaid_bills_count,
         paid_bills_count,
-        ledger.expenses,
-        ledger.net.unwrap_or(BigDecimal::from(0)),
+        format_currency(&ledger.expenses),
+        format_currency(&ledger.net.unwrap_or(BigDecimal::from(0))),
         notes_section
     );
 
@@ -311,7 +311,7 @@ fn add_income_to_ledger(siv: &mut Cursive, ledger_id: i32, ledger_repo: &Rc<Ledg
 
     let mut select = SelectView::new();
     for income in month_incomes {
-        let label = format!("{} - ${}", income.date.format("%d/%m/%Y"), income.amount);
+        let label = format!("{} - {}", income.date.format("%d/%m/%Y"), format_currency(&income.amount));
         select.add_item(label, income.id);
     }
 
@@ -403,7 +403,7 @@ fn add_bill_to_ledger(siv: &mut Cursive, ledger_id: i32, ledger_repo: &Rc<Ledger
     let mut select = SelectView::new();
     for bill in available_bills {
         let due_day_str = bill.due_day.map_or("-".to_string(), |d| d.format("%-d").to_string());
-        let label = format!("{} - ${} - {}", bill.name, bill.amount, due_day_str);
+        let label = format!("{} - {} - {}", bill.name, format_currency(&bill.amount), due_day_str);
         select.add_item(label, (bill.id, bill.amount, bill.due_day, bill.is_auto_pay));
     }
 
@@ -495,7 +495,7 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32, ledger_repo: &Rc<LedgerRe
 
         let form = ListView::new()
             .child("Amount", EditView::new()
-                .content(bill.amount.to_string())
+                .content(format_currency(&bill.amount))
                 .with_name("edit_bill_amount")
                 .fixed_width(20))
             .child("Due Day (DD/MM)", EditView::new()
@@ -532,7 +532,7 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32, ledger_repo: &Rc<LedgerRe
                     }).unwrap();
 
                     // Parse amount
-                    let amount = match amount_str.to_string().parse::<BigDecimal>() {
+                    let amount = match parse_currency(&amount_str) {
                         Ok(a) => a,
                         Err(_) => {
                             s.add_layer(Dialog::info("Invalid amount format"));
@@ -571,7 +571,7 @@ fn edit_ledger_bill(siv: &mut Cursive, ledger_id: i32, ledger_repo: &Rc<LedgerRe
 fn update_ledger(siv: &mut Cursive, ledger_id: i32, ledger_repo: &Rc<LedgerRepo>) {
     let ledger = ledger_repo.find_by_id(ledger_id).expect("Error loading ledger");
 
-    let current_balance = ledger.bank_balance.to_string();
+    let current_balance = format_currency(&ledger.bank_balance);
     let name = ledger.name.unwrap_or_default();
     let date = ledger.date;
     let notes = ledger.notes.unwrap_or_default();
@@ -623,7 +623,7 @@ fn update_ledger(siv: &mut Cursive, ledger_id: i32, ledger_repo: &Rc<LedgerRepo>
                 return;
             }
 
-            let balance = new_balance.to_string().parse::<BigDecimal>();
+            let balance = parse_currency(&new_balance);
 
             if balance.is_err() {
                 s.add_layer(Dialog::info("Invalid balance format"));
