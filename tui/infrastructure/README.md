@@ -27,7 +27,8 @@ terraform init \
   -backend-config="resource_group_name=rg-moneybae-tfstate-shared" \
   -backend-config="storage_account_name=stmbtfstateshared" \
   -backend-config="container_name=tfstate" \
-  -backend-config="key=core/dev.cus.tfstate"
+  -backend-config="key=core/dev.cus.tfstate" \
+  -backend-config="subscription_id=c6f1212c-ec19-425f-96a0-41f2db717ea8"
 ```
 
 ### 2. Plan
