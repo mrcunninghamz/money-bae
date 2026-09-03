@@ -7,7 +7,7 @@ import (
 	"github.com/mrcunninghamz/money-bae/servers/api/internal/config"
 	"github.com/mrcunninghamz/money-bae/servers/api/internal/database"
 	"github.com/mrcunninghamz/money-bae/servers/api/internal/httpapi"
-	"github.com/mrcunninghamz/money-bae/servers/api/internal/models"
+	"github.com/mrcunninghamz/money-bae/servers/api/internal/migrations"
 )
 
 func main() {
@@ -17,7 +17,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
-	if err := db.AutoMigrate(&models.User{}); err != nil {
+	if err := migrations.Run(db); err != nil {
 		log.Fatalf("failed to migrate database: %v", err)
 	}
 
