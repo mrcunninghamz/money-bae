@@ -1,9 +1,13 @@
 package httpapi
 
-import "net/http"
+import (
+	"net/http"
 
-func NewRouter() http.Handler {
+	"gorm.io/gorm"
+)
+
+func NewRouter(db *gorm.DB) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", healthHandler)
+	mux.HandleFunc("GET /health", healthHandler(db))
 	return mux
 }
