@@ -1,10 +1,11 @@
 # Rust build artifacts
-/target
+/tui/target
 
 # Environment variables
 .env
 .env.dev
 .env.prod
+.env.local
 
 # IDE files
 .idea/
@@ -19,6 +20,7 @@ Thumbs.db
 
 # Claude Code local files
 .claude/
+.superpowers/
 
 # Cargo
 Cargo.lock.bak
