@@ -5,6 +5,7 @@
 .env
 .env.dev
 .env.prod
+.env.local
 
 # IDE files
 .idea/
