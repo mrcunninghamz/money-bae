@@ -1,5 +1,5 @@
-infrastructure/
 .env
 .env.local
 .env.dev
+.env.prod
 *.example
