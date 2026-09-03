@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Go module path: `github.com/mrcunninghamz/money-bae/servers/api`; `go.mod` declares `go 1.22`.
+- Go module path: `github.com/mrcunninghamz/money-bae/servers/api`; `go.mod` declares `go 1.27` (toolchain upgraded from 1.22 mid-plan, see Task 6's ledger entry for the version-bump follow-up commit).
 - Single Go module for now — no `go.work`. Revisit only if a second Go module appears under `servers/`.
 - DB-touching Go tests use `github.com/glebarez/sqlite` (pure-Go, in-memory) as a fast mock — confirmed preference, even though production targets Postgres. DSN: `file::memory:?cache=shared`.
 - Auth middleware is fully built and tested but **not wired into the router** in this plan — no real IdP is configured yet.
