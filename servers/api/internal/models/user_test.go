@@ -3,27 +3,14 @@ package models_test
 import (
 	"testing"
 
-	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 
 	"github.com/mrcunninghamz/money-bae/servers/api/internal/models"
+	"github.com/mrcunninghamz/money-bae/servers/api/internal/testdb"
 )
 
-func setupTestDB(t *testing.T) *gorm.DB {
-	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("failed to open test db: %v", err)
-	}
-	if err := db.AutoMigrate(&models.User{}); err != nil {
-		t.Fatalf("failed to migrate: %v", err)
-	}
-	return db
-}
-
 func TestUser_BeforeCreate_AssignsUUIDv7WhenZero(t *testing.T) {
-	db := setupTestDB(t)
+	db := testdb.New(t, &models.User{})
 
 	user := &models.User{Sub: "auth0|123"}
 	if err := db.Create(user).Error; err != nil {
@@ -39,7 +26,7 @@ func TestUser_BeforeCreate_AssignsUUIDv7WhenZero(t *testing.T) {
 }
 
 func TestUser_BeforeCreate_PreservesProvidedID(t *testing.T) {
-	db := setupTestDB(t)
+	db := testdb.New(t, &models.User{})
 
 	fixedID := uuid.New()
 	user := &models.User{Base: models.Base{ID: fixedID}, Sub: "auth0|456"}
@@ -53,7 +40,7 @@ func TestUser_BeforeCreate_PreservesProvidedID(t *testing.T) {
 }
 
 func TestUser_Sub_MustBeUnique(t *testing.T) {
-	db := setupTestDB(t)
+	db := testdb.New(t, &models.User{})
 
 	if err := db.Create(&models.User{Sub: "auth0|dup"}).Error; err != nil {
 		t.Fatalf("failed to create first user: %v", err)

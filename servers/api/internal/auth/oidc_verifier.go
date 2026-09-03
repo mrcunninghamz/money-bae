@@ -6,6 +6,8 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 )
 
+var _ Verifier = (*OIDCVerifier)(nil)
+
 type OIDCVerifier struct {
 	verifier *oidc.IDTokenVerifier
 }

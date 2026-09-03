@@ -7,11 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/glebarez/sqlite"
-	"gorm.io/gorm"
-
 	"github.com/mrcunninghamz/money-bae/servers/api/internal/auth"
 	"github.com/mrcunninghamz/money-bae/servers/api/internal/models"
+	"github.com/mrcunninghamz/money-bae/servers/api/internal/testdb"
 )
 
 type fakeVerifier struct {
@@ -23,20 +21,8 @@ func (f *fakeVerifier) Verify(ctx context.Context, rawIDToken string) (*auth.Cla
 	return f.claims, f.err
 }
 
-func setupTestDB(t *testing.T) *gorm.DB {
-	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("failed to open test db: %v", err)
-	}
-	if err := db.AutoMigrate(&models.User{}); err != nil {
-		t.Fatalf("failed to migrate: %v", err)
-	}
-	return db
-}
-
 func TestRequireAuth_MissingHeader_Returns401(t *testing.T) {
-	db := setupTestDB(t)
+	db := testdb.New(t, &models.User{})
 	handler := auth.RequireAuth(&fakeVerifier{}, db)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("next handler should not be called")
 	}))
@@ -51,7 +37,7 @@ func TestRequireAuth_MissingHeader_Returns401(t *testing.T) {
 }
 
 func TestRequireAuth_VerifierError_Returns401(t *testing.T) {
-	db := setupTestDB(t)
+	db := testdb.New(t, &models.User{})
 	handler := auth.RequireAuth(&fakeVerifier{err: errors.New("bad token")}, db)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("next handler should not be called")
 	}))
@@ -67,7 +53,7 @@ func TestRequireAuth_VerifierError_Returns401(t *testing.T) {
 }
 
 func TestRequireAuth_NewSub_CreatesUser(t *testing.T) {
-	db := setupTestDB(t)
+	db := testdb.New(t, &models.User{})
 	var gotUser *models.User
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, ok := auth.UserFromContext(r.Context())
@@ -100,7 +86,7 @@ func TestRequireAuth_NewSub_CreatesUser(t *testing.T) {
 }
 
 func TestRequireAuth_ExistingSub_ReusesUser(t *testing.T) {
-	db := setupTestDB(t)
+	db := testdb.New(t, &models.User{})
 	existing := models.User{Sub: "auth0|existing", Email: "existing@example.com"}
 	if err := db.Create(&existing).Error; err != nil {
 		t.Fatalf("failed to seed user: %v", err)

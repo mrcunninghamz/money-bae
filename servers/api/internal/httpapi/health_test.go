@@ -5,21 +5,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/glebarez/sqlite"
-	"gorm.io/gorm"
+	"github.com/mrcunninghamz/money-bae/servers/api/internal/testdb"
 )
 
-func openTestDB(t *testing.T) *gorm.DB {
-	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("failed to open test db: %v", err)
-	}
-	return db
-}
-
 func TestHealthHandler_ReturnsOKWhenDBReachable(t *testing.T) {
-	db := openTestDB(t)
+	db := testdb.New(t)
 	handler := healthHandler(db)
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
@@ -35,7 +25,7 @@ func TestHealthHandler_ReturnsOKWhenDBReachable(t *testing.T) {
 }
 
 func TestHealthHandler_Returns503WhenDBUnreachable(t *testing.T) {
-	db := openTestDB(t)
+	db := testdb.New(t)
 	sqlDB, err := db.DB()
 	if err != nil {
 		t.Fatalf("failed to get underlying sql.DB: %v", err)

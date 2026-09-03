@@ -6,13 +6,13 @@
 
 **Architecture:** A single-module Go service (`servers/api`) using GORM over Postgres, stdlib `net/http` routing, OIDC-based auth middleware built against an interface (so it's testable without a real IdP), and a Terraform change to `platform/db` (moved from `tui/infrastructure`) to add a `money_bae_api` database alongside the existing `money_bae` on the same Azure Postgres server. Deploy path is a Dockerfile + a TypeScript CDK app targeting AWS App Runner.
 
-**Tech Stack:** Go 1.22, `gorm.io/gorm` + `gorm.io/driver/postgres`, `github.com/google/uuid` (UUIDv7), `github.com/coreos/go-oidc/v3`, `github.com/joho/godotenv`, `github.com/glebarez/sqlite` (test-only), Terraform (azurerm provider), AWS CDK v2 (TypeScript) + `@aws-cdk/aws-apprunner-alpha`, Docker.
+**Tech Stack:** Go 1.27.1, `gorm.io/gorm` + `gorm.io/driver/postgres`, `github.com/google/uuid` (UUIDv7), `github.com/coreos/go-oidc/v3`, `github.com/joho/godotenv`, `github.com/glebarez/sqlite` (test-only), Terraform (azurerm provider), AWS CDK v2 (TypeScript) + `@aws-cdk/aws-apprunner-alpha`, Docker.
 
 **Spec:** `docs/superpowers/specs/2026-09-02-money-bae-api-design.md`
 
 ## Global Constraints
 
-- Go module path: `github.com/mrcunninghamz/money-bae/servers/api`; `go.mod` declares `go 1.27` (toolchain upgraded from 1.22 mid-plan, see Task 6's ledger entry for the version-bump follow-up commit).
+- Go module path: `github.com/mrcunninghamz/money-bae/servers/api`; `go.mod` declares `go 1.27` (toolchain upgraded from 1.22 mid-plan to match the installed local Go version).
 - Single Go module for now — no `go.work`. Revisit only if a second Go module appears under `servers/`.
 - DB-touching Go tests use `github.com/glebarez/sqlite` (pure-Go, in-memory) as a fast mock — confirmed preference, even though production targets Postgres. DSN: `file::memory:?cache=shared`.
 - Auth middleware is fully built and tested but **not wired into the router** in this plan — no real IdP is configured yet.

@@ -329,7 +329,7 @@ Rust build in one respect: `gorm.io/driver/postgres` is pure Go (no
 fully static binary with no C toolchain in the runtime image:
 
 ```dockerfile
-FROM golang:1.22-alpine AS builder
+FROM golang:1.27.1-alpine AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -436,3 +436,7 @@ never touch source control or the CFN template):
 - CI/CD for image build/push.
 - A "prod" environment/Terraform environment/App Runner stage for the API.
 - `go.work` — until a second Go module exists in this repo.
+- Network hardening: the Azure Postgres firewall currently allows all IPs
+  (`db_allow_public_access = true`), and App Runner's default egress has no
+  stable outbound IP — narrowing the firewall later will require adding a
+  VPC connector + NAT Gateway to the App Runner service first.
