@@ -9,13 +9,24 @@ Terraform configuration for deploying Money-Bae core infrastructure on Azure.
   - `money_bae` — the Rust TUI application's data
   - `money_bae_api` — the Go API's data (independent schema, same server)
 
+## ⚠️ Live Infrastructure
+
+This Terraform manages real Azure resources with real remote state. Never
+run `terraform apply` or `terraform destroy` without first reviewing the
+`terraform plan` output carefully — this is not a sandbox.
+
+`zone = "1"` on the PostgreSQL server is pinned to match the live server's
+actual current availability zone (Azure auto-assigned it at creation, before
+this config tracked it) — without this, `terraform plan` would show an
+unrelated in-place update clearing it on every apply.
+
 ## Prerequisites
 
 - Azure CLI authenticated (`az login`)
 - Terraform >= 1.1 (required for the `moved` block used in `modules/postgresql/main.tf`)
 - Azure subscription with permissions to create resources
 - Remote state storage account (already provisioned: `stmbtfstateshared`)
-- `TF_VAR_money_bae_db_admin_password` set in your environment before running `plan`/`apply` — see below. Never pass it as a `-var` flag or write it into any file (including `.tfvars`); the admin login (`money_bae_db_admin_login`) is not sensitive and is set in `environments/dev.cus.tfvars`.
+- `TF_VAR_money_bae_db_admin_password` set in your environment before running `plan`/`apply` — see below. Never pass it as a `-var` flag or write it into any file (including `.tfvars`); the admin login (`money_bae_db_admin_login`) is set in `environments/dev.cus.tfvars` — it's still marked `sensitive` in Terraform (so it stays out of plan/apply console output), even though it's a non-secret username value that's fine to commit.
 
 ### Setting the admin password
 
@@ -64,6 +75,10 @@ Infrastructure deployment will be handled by Azure DevOps pipeline (future).
 
 - `resource_group_name`: Resource group name
 - `resource_group_location`: Resource group location
+- `postgresql_server_name`: Name of the PostgreSQL Flexible Server
+- `postgresql_server_fqdn`: FQDN of the PostgreSQL Flexible Server
+- `postgresql_database_names`: Names of the PostgreSQL databases on the server
+- `postgresql_connection_strings`: Map of database name to PostgreSQL connection string (sensitive)
 
 ## Module Structure
 
@@ -75,7 +90,7 @@ infrastructure/
 ├── outputs.tf           # Output values
 ├── environments/        # Environment-specific tfvars
 │   └── dev.cus.tfvars
-└── modules/             # Reusable modules (future)
+└── modules/             # Reusable modules
     └── postgresql/      # PostgreSQL Flexible Server module
 ```
 
