@@ -16,6 +16,7 @@ export class ApiStack extends cdk.Stack {
         repository: repo,
         tagOrDigest: 'latest',
         imageConfiguration: {
+          port: 8080,
           environmentSecrets: { DATABASE_URL: apprunner.Secret.fromSecretsManager(dbSecret) },
         },
       }),
