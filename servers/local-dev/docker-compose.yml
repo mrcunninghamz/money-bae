@@ -1,0 +1,16 @@
+name: money-bae
+services:
+  postgres:
+    image: postgres:16
+    container_name: money-bae-pg
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: money_bae_api
+    volumes:
+      - money-bae-local-dev-data:/var/lib/postgresql/data
+
+volumes:
+  money-bae-local-dev-data:

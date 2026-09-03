@@ -1629,15 +1629,18 @@ git commit -m "Add CDK app for API Gateway infra (ECR + App Runner)"
 
 Added mid-plan: local dev had been using another project's Docker Postgres container (`fern-pg`) as a stopgap during Task 8's manual verification. This task gives money-bae its own dedicated local Postgres, independent of any other project's container lifecycle, on host port 5433 (5432 is already taken by `fern-pg` on this machine).
 
+**Incident during this task**: the first version of this compose file had no explicit `name:` field. Docker Compose derives a project's name from its directory's basename when none is set — and `servers/local-dev/` collided with an unrelated project's compose file that *also* lives in a directory named `local-dev`. Both files defined a service literally named `postgres`, so Compose treated the new container as an update to the existing one and replaced (deleted) the other project's live `fern-pg` container. The data was recovered from an orphaned volume and that project's own compose file was fixed in its own repo (separate PR, out of scope here) — but the lesson applies here too: **always set an explicit top-level `name:`** so the project's identity never depends on directory-naming coincidences with other repos on the same machine.
+
 - [ ] **Step 1: Write the compose file**
 
 Create `servers/local-dev/docker-compose.yml`:
 
 ```yaml
+name: money-bae
 services:
   postgres:
     image: postgres:16
-    container_name: money-bae-local-dev
+    container_name: money-bae-pg
     ports:
       - "5433:5432"
     environment:
@@ -1651,7 +1654,7 @@ volumes:
   money-bae-local-dev-data:
 ```
 
-`POSTGRES_DB: money_bae_api` makes the official Postgres image create that database automatically on first boot — no manual `createdb` step needed.
+`POSTGRES_DB: money_bae_api` makes the official Postgres image create that database automatically on first boot — no manual `createdb` step needed. The top-level `name: money-bae` is the fix described above — it pins the Compose project identity regardless of what directory this file happens to live in.
 
 - [ ] **Step 2: Write a short README**
 
@@ -1707,10 +1710,10 @@ cd servers/local-dev
 docker compose up -d
 docker compose ps
 psql "postgres://admin:root@localhost:5433/money_bae_api?sslmode=disable" -c '\conninfo' 2>&1 || \
-  docker exec money-bae-local-dev psql -U admin -d money_bae_api -c '\conninfo'
+  docker exec money-bae-pg psql -U admin -d money_bae_api -c '\conninfo'
 ```
 
-Expected: container `money-bae-local-dev` is `Up`, and the connection succeeds (via `psql` directly if installed, or `docker exec` into the container if not).
+Expected: container `money-bae-pg` is `Up`, and the connection succeeds (via `psql` directly if installed, or `docker exec` into the container if not).
 
 - [ ] **Step 5: Commit**
 
