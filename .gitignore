@@ -19,6 +19,7 @@ Thumbs.db
 
 # Claude Code local files
 .claude/
+.superpowers/
 
 # Cargo
 Cargo.lock.bak
