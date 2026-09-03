@@ -1615,3 +1615,107 @@ Confirm the output does **not** list anything under `node_modules/` or `cdk.out/
 ```bash
 git commit -m "Add CDK app for API Gateway infra (ECR + App Runner)"
 ```
+
+---
+
+### Task 11: Dedicated local-dev Postgres via docker-compose
+
+**Files:**
+- Create: `servers/local-dev/docker-compose.yml`
+- Create: `servers/local-dev/README.md`
+- Modify: `servers/api/.env.local.example`
+
+**Interfaces:** None — infra-only, no Go code touched.
+
+Added mid-plan: local dev had been using another project's Docker Postgres container (`fern-pg`) as a stopgap during Task 8's manual verification. This task gives money-bae its own dedicated local Postgres, independent of any other project's container lifecycle, on host port 5433 (5432 is already taken by `fern-pg` on this machine).
+
+- [ ] **Step 1: Write the compose file**
+
+Create `servers/local-dev/docker-compose.yml`:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    container_name: money-bae-local-dev
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: money_bae_api
+    volumes:
+      - money-bae-local-dev-data:/var/lib/postgresql/data
+
+volumes:
+  money-bae-local-dev-data:
+```
+
+`POSTGRES_DB: money_bae_api` makes the official Postgres image create that database automatically on first boot — no manual `createdb` step needed.
+
+- [ ] **Step 2: Write a short README**
+
+Create `servers/local-dev/README.md`:
+
+```markdown
+# Local Dev Postgres
+
+Dedicated Postgres for local money-bae API development — independent of any
+other project's containers.
+
+## Start
+
+```bash
+docker compose up -d
+```
+
+Creates a `money_bae_api` database automatically (via `POSTGRES_DB`), reachable at
+`localhost:5433`, credentials `admin`/`root`. Data persists in a named Docker
+volume (`money-bae-local-dev-data`) across restarts.
+
+## Stop
+
+```bash
+docker compose down
+```
+
+Add `-v` to also delete the data volume (starts fresh next time).
+
+## Connection string
+
+```
+postgres://admin:root@localhost:5433/money_bae_api?sslmode=disable
+```
+
+Matches `servers/api/.env.local.example`.
+```
+
+- [ ] **Step 3: Point the API's local env template at it**
+
+Modify `servers/api/.env.local.example` — replace its `DATABASE_URL` line:
+
+```
+DATABASE_URL=postgres://admin:root@localhost:5433/money_bae_api?sslmode=disable
+```
+
+(Port `5433`, matching this compose file — not `5432`, which is taken by an unrelated project's container on this machine.)
+
+- [ ] **Step 4: Verify it actually works**
+
+```bash
+cd servers/local-dev
+docker compose up -d
+docker compose ps
+psql "postgres://admin:root@localhost:5433/money_bae_api?sslmode=disable" -c '\conninfo' 2>&1 || \
+  docker exec money-bae-local-dev psql -U admin -d money_bae_api -c '\conninfo'
+```
+
+Expected: container `money-bae-local-dev` is `Up`, and the connection succeeds (via `psql` directly if installed, or `docker exec` into the container if not).
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd /Users/kmerecido/Documents/Projects/mrcunninghamz/money-bae
+git add servers/local-dev servers/api/.env.local.example
+git commit -m "Add dedicated local-dev Postgres via docker-compose"
+```
