@@ -6,20 +6,11 @@ plan for full context: `../../docs/superpowers/specs/2026-09-02-money-bae-api-de
 
 ## Build & test
 
-**Always scope Go commands to `./cmd/... ./internal/...`, never bare `./...`:**
-
 ```bash
-go build ./cmd/... ./internal/...
-go vet ./cmd/... ./internal/...
-go test ./cmd/... ./internal/...
+go build ./...
+go vet ./...
+go test ./...
 ```
-
-`infrastructure/cdk/` is a separate TypeScript/CDK project nested inside this
-Go module's directory tree. Once you run `npm install` there, its
-`node_modules/` contains files (from the `aws-cdk` package's Go init
-templates) that aren't valid Go source and will break a bare `go build ./...`
-or `go test ./...` with a cryptic `invalid input file name` error. Scoping to
-`./cmd/... ./internal/...` avoids this entirely.
 
 ## Local development
 
@@ -41,8 +32,18 @@ commented-out wiring shape.
 
 ## Deploy
 
-`infrastructure/Dockerfile` builds the API into a container image.
-`infrastructure/cdk/` is a CDK app defining the AWS App Runner deployment
-(ECR repo, App Runner service, Secrets Manager reference for
-`DATABASE_URL`) — see its own directory for details. `cdk deploy` has not
-been run; this repo only generates the template (`cdk synth`) so far.
+Deploy infrastructure lives at `../api-infrastructure/` — a sibling of this
+Go module, not nested inside it, specifically so its `node_modules` can
+never collide with Go's own tooling (an earlier revision nested it inside
+`servers/api/`, which broke `go build ./...`/`go mod tidy` when CDK's
+bundled Go init-templates got mistaken for real Go source; moving it out
+fixed that at the root instead of working around it with scoped commands).
+
+`../api-infrastructure/Dockerfile` builds the API into a container image
+(build context is `servers/api/`: `docker build -f
+../api-infrastructure/Dockerfile -t money-bae-api:local .` run from
+`servers/api/`). `../api-infrastructure/cdk/` is a CDK app defining the AWS
+App Runner deployment (ECR repo, App Runner service, Secrets Manager
+reference for `DATABASE_URL`) — see its own directory for details. `cdk
+deploy` has not been run; this repo only generates the template (`cdk
+synth`) so far.
