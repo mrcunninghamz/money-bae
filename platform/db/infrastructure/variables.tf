@@ -25,13 +25,13 @@ variable "component" {
   default     = "core"
 }
 
-variable "db_admin_login" {
+variable "money_bae_db_admin_login" {
   type        = string
   description = "PostgreSQL administrator login"
   sensitive   = true
 }
 
-variable "db_admin_password" {
+variable "money_bae_db_admin_password" {
   type        = string
   description = "PostgreSQL administrator password"
   sensitive   = true

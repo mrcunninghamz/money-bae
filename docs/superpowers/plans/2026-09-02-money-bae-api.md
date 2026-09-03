@@ -220,8 +220,10 @@ Expected: `terraform fmt` reports no changes needed (or run `terraform fmt -recu
 
 - [ ] **Step 8: Plan, and stop for human review before any apply**
 
+Requires `TF_VAR_money_bae_db_admin_password` set in the environment (see `platform/db/infrastructure/README.md`) — never pass the real password as a `-var` flag or write it into any file.
+
 ```bash
-terraform plan -var-file="environments/dev.cus.tfvars" -var="db_admin_login=mbae" -var="db_admin_password=<real admin password>"
+terraform plan -var-file="environments/dev.cus.tfvars"
 ```
 
 Expected in the plan output: the existing `money_bae` database shows as **moved**, not destroyed (look for "1 to move" or the resource listed under "Terraform will perform the following actions" with a move annotation, not `-/+ destroy and then create`), and exactly **one** new database (`money_bae_api`) shows as `+ create`. If anything shows the `money_bae` database being destroyed/recreated, **stop and do not proceed** — that means the `moved` block didn't take effect as expected.

@@ -11,8 +11,8 @@ module "postgresql" {
   resource_group_name    = azurerm_resource_group.main.name
   location               = azurerm_resource_group.main.location
   database_names         = ["money_bae", "money_bae_api"]
-  administrator_login    = var.db_admin_login
-  administrator_password = var.db_admin_password
+  administrator_login    = var.money_bae_db_admin_login
+  administrator_password = var.money_bae_db_admin_password
   allow_public_access    = var.db_allow_public_access
   tags                   = var.tags
 }
