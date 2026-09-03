@@ -390,8 +390,13 @@ export class ApiStack extends cdk.Stack {
     const dbSecret = secretsmanager.Secret.fromSecretNameV2(this, 'DbSecret', 'money-bae-api/database-url');
 
     new apprunner.Service(this, 'ApiService', {
-      source: apprunner.Source.fromEcr({ repository: repo, tagOrDigest: 'latest' }),
-      environmentSecrets: { DATABASE_URL: apprunner.Secret.fromSecretsManager(dbSecret) },
+      source: apprunner.Source.fromEcr({
+        repository: repo,
+        tagOrDigest: 'latest',
+        imageConfiguration: {
+          environmentSecrets: { DATABASE_URL: apprunner.Secret.fromSecretsManager(dbSecret) },
+        },
+      }),
       healthCheck: apprunner.HealthCheck.http({ path: '/health' }),
     });
   }
