@@ -25,10 +25,22 @@ port 5433) — see `../local-dev/README.md`.
 
 ## Auth
 
-`internal/auth` implements OIDC-based auth middleware (verify a JWT,
-find-or-create the user by `sub`), but it is **not wired into the router
-yet** — no IdP has been chosen/configured. See `cmd/api/main.go` for the
-commented-out wiring shape.
+`internal/auth` defines a `Verifier` interface (`Verify(ctx, rawIDToken) (*UserPrincipal, error)`)
+and a `RequireAuth` middleware wired into the router (see `cmd/api/main.go`
+and `internal/httpapi/router.go`, protecting `GET /me`). `UserPrincipal`
+carries `UserID` resolved (find-or-create by `sub`) against our own
+database — it's never a token claim, which is why it's a separate type from
+`Claims` (the raw `sub`/`email` asserted by the token).
+
+Two `Verifier` implementations exist:
+- `OIDCVerifier` — real JWT/OIDC verification. Built but unused: no IdP has
+  been chosen/configured yet, and it does a live discovery call against
+  `OIDC_ISSUER_URL` at construction time.
+- `MockVerifier` — what's actually wired in for now. Ignores the token
+  entirely and always authenticates as the seed user from
+  `cmd/import-legacy-data` (`auth.SeedUserSub`/`auth.SeedUserEmail`).
+
+Handlers read the current identity via `auth.PrincipalFromContext(ctx)`.
 
 ## Deploy
 

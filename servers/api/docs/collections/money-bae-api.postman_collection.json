@@ -1,0 +1,49 @@
+{
+	"info": {
+		"name": "money-bae API",
+		"description": "Requests against the Go API in servers/api. Update this collection as routes are added — currently just /health and /me.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080"
+		},
+		{
+			"key": "token",
+			"value": "mock-token",
+			"description": "Ignored for now — MockVerifier is wired in and always authenticates as the seed user regardless of this value. Swap for a real bearer token once an IdP is configured."
+		}
+	],
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/health",
+					"host": ["{{baseUrl}}"],
+					"path": ["health"]
+				}
+			}
+		},
+		{
+			"name": "Me",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/me",
+					"host": ["{{baseUrl}}"],
+					"path": ["me"]
+				}
+			}
+		}
+	]
+}
