@@ -13,10 +13,9 @@ variable "location" {
   description = "Azure region for the server"
 }
 
-variable "database_name" {
-  type        = string
-  description = "Name of the database to create"
-  default     = "money_bae"
+variable "database_names" {
+  type        = list(string)
+  description = "Names of the databases to create on this server"
 }
 
 variable "administrator_login" {

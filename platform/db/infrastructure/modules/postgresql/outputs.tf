@@ -13,13 +13,16 @@ output "server_fqdn" {
   description = "Fully qualified domain name of the PostgreSQL server"
 }
 
-output "database_name" {
-  value       = azurerm_postgresql_flexible_server_database.main.name
-  description = "Name of the PostgreSQL database"
+output "database_names" {
+  value       = [for db in azurerm_postgresql_flexible_server_database.main : db.name]
+  description = "Names of the PostgreSQL databases"
 }
 
-output "connection_string" {
-  value       = "postgresql://${var.administrator_login}@${azurerm_postgresql_flexible_server.main.name}:${var.administrator_password}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/${azurerm_postgresql_flexible_server_database.main.name}?sslmode=require"
-  description = "PostgreSQL connection string"
+output "connection_strings" {
+  value = {
+    for name, db in azurerm_postgresql_flexible_server_database.main :
+    name => "postgresql://${var.administrator_login}:${var.administrator_password}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/${db.name}?sslmode=require"
+  }
+  description = "Map of database name to PostgreSQL connection string"
   sensitive   = true
 }

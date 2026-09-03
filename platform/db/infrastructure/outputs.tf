@@ -18,13 +18,13 @@ output "postgresql_server_fqdn" {
   description = "FQDN of the PostgreSQL server"
 }
 
-output "postgresql_database_name" {
-  value       = module.postgresql.database_name
-  description = "Name of the PostgreSQL database"
+output "postgresql_database_names" {
+  value       = module.postgresql.database_names
+  description = "Names of the PostgreSQL databases"
 }
 
-output "postgresql_connection_string" {
-  value       = module.postgresql.connection_string
-  description = "PostgreSQL connection string"
+output "postgresql_connection_strings" {
+  value       = module.postgresql.connection_strings
+  description = "Map of database name to PostgreSQL connection string"
   sensitive   = true
 }

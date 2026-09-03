@@ -17,10 +17,16 @@ resource "azurerm_postgresql_flexible_server" "main" {
 }
 
 resource "azurerm_postgresql_flexible_server_database" "main" {
-  name      = var.database_name
+  for_each  = toset(var.database_names)
+  name      = each.value
   server_id = azurerm_postgresql_flexible_server.main.id
   charset   = "UTF8"
   collation = "en_US.utf8"
+}
+
+moved {
+  from = azurerm_postgresql_flexible_server_database.main
+  to   = azurerm_postgresql_flexible_server_database.main["money_bae"]
 }
 
 resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_azure_services" {
