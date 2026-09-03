@@ -32,9 +32,10 @@ CDK) for that scaffold.
 
 ```
 platform/
-  db/                          # moved from tui/infrastructure — Azure Postgres Terraform
-    modules/postgresql/
-    environments/dev.cus.tfvars
+  db/
+    infrastructure/            # moved from tui/infrastructure — Azure Postgres Terraform
+      modules/postgresql/
+      environments/dev.cus.tfvars
 servers/
   api/
     go.mod                     # module github.com/mrcunninghamz/money-bae/servers/api
@@ -61,8 +62,12 @@ servers/
 ```
 
 `platform/db` and `servers/api` are new top-level siblings to `tui/`. The
-`tui/infrastructure` move to `platform/db` is a plain `git mv` — no content
-changes beyond what's described below.
+`tui/infrastructure` move to `platform/db/infrastructure` is a plain
+`git mv` — no content changes beyond what's described below. Nesting the
+Terraform under an `infrastructure/` subfolder (rather than directly in
+`platform/db/`) mirrors the convention `servers/api/infrastructure/` already
+uses for that project's Dockerfile/CDK — every top-level project keeps its
+IaC in its own `infrastructure/` subfolder.
 
 ## Go modules & workspace
 
@@ -305,7 +310,7 @@ module.postgresql.azurerm_postgresql_flexible_server_firewall_rule.allow_azure_s
 No state migration is needed. The README's documented `terraform init`
 command was missing `-backend-config="subscription_id=..."` (required — the
 first init attempt failed without it); this has already been fixed in
-`tui/infrastructure/README.md` (to move to `platform/db/README.md`).
+`tui/infrastructure/README.md` (to move to `platform/db/infrastructure/README.md`).
 
 Note for future awareness: Terraform state stores resource values —
 including `db_admin_password` — in plaintext regardless of a variable's
