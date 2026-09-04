@@ -4,7 +4,7 @@
 
 **Goal:** Provision a Microsoft Entra External ID (CIAM) tenant and four app registrations (`money-bae-local`, `money-bae-dev`, `money-bae-api-local`, `money-bae-api-dev`) as Terraform, with a working SPA→API scope grant, then point the Postman collection at OAuth2 PKCE using the new SPA client IDs.
 
-**Architecture:** Two independent Terraform root modules under `platform/entra-external-id/` — `tenant/` (creates the CIAM tenant via the `azapi` provider, subscription-scoped auth) and `app-registrations/` (creates the four app registrations via the `azuread` provider, tenant-scoped auth, using a reusable `app-registration-pair` module instantiated once per environment). Terraform can't compute one provider's config from a resource created in the same apply, so these must be separate states applied in order with a manual re-login step between them. This plan writes and validates the Terraform (`fmt`, `validate`) as its test cycle — there's no unit-test framework for HCL, and `terraform apply` against real Azure/Entra is a human-run, plan-reviewed step per this repo's live-infrastructure convention, never something a task runs unsupervised.
+**Architecture:** Two independent Terraform root modules under `platform/entra-external-id/` — `tenant/` (creates the CIAM tenant via the `azapi` provider, subscription-scoped auth) and `app-registrations/` (creates the four app registrations via the `azuread` provider, tenant-scoped auth, using two separate reusable modules — `api-registration` and `spa-registration` — instantiated once per environment each and wired together). Terraform can't compute one provider's config from a resource created in the same apply, so these must be separate states applied in order with a manual re-login step between them. This plan writes and validates the Terraform (`fmt`, `validate`) as its test cycle — there's no unit-test framework for HCL, and `terraform apply` against real Azure/Entra is a human-run, plan-reviewed step per this repo's live-infrastructure convention, never something a task runs unsupervised.
 
 **Tech Stack:** Terraform >= 1.1, `hashicorp/azurerm` (existing pin), `azure/azapi`, `hashicorp/azuread`, `hashicorp/random`.
 
@@ -209,53 +209,59 @@ git commit -m "Add Terraform for the Entra External ID (CIAM) tenant"
 
 ---
 
-## Task 2: `app-registrations/modules/app-registration-pair/` — reusable module
+## Task 2: `api-registration` and `spa-registration` — two separate reusable modules
+
+Split into two modules, not one combined pair — matching the pattern used
+elsewhere for this kind of infra (one `api-registration` module type,
+reusable per environment or even per consumer; a separate
+`spa-registration` module type that takes an API's `client_id`/`scope_id`
+as inputs rather than creating its own). This also means a future SPA or
+tool could be pointed at an existing API module instance without
+duplicating the API's definition.
 
 **Files:**
-- Create: `platform/entra-external-id/app-registrations/modules/app-registration-pair/variables.tf`
-- Create: `platform/entra-external-id/app-registrations/modules/app-registration-pair/main.tf`
-- Create: `platform/entra-external-id/app-registrations/modules/app-registration-pair/outputs.tf`
+- Create: `platform/entra-external-id/app-registrations/modules/api-registration/variables.tf`
+- Create: `platform/entra-external-id/app-registrations/modules/api-registration/main.tf`
+- Create: `platform/entra-external-id/app-registrations/modules/api-registration/outputs.tf`
+- Create: `platform/entra-external-id/app-registrations/modules/spa-registration/variables.tf`
+- Create: `platform/entra-external-id/app-registrations/modules/spa-registration/main.tf`
+- Create: `platform/entra-external-id/app-registrations/modules/spa-registration/outputs.tf`
 
 **Interfaces:**
-- Consumes: `var.env_name` (string, e.g. `"local"`/`"dev"`), `var.redirect_uri` (string, the SPA's real redirect URI for that environment).
-- Produces: outputs `spa_client_id`, `api_client_id`, `api_identifier_uri` (all string) — consumed by Task 3's root module outputs.
+- `api-registration` consumes: `var.display_name` (string, e.g. `"money-bae-api-local"`). Produces: outputs `client_id`, `identifier_uri`, `scope_id` (the raw scope UUID), `service_principal_object_id` (all string) — consumed by `spa-registration` module instances in Task 3.
+- `spa-registration` consumes: `var.display_name` (string), `var.redirect_uris` (list(string)), `var.api_client_id`, `var.api_scope_id`, `var.api_service_principal_object_id` (all string, from an `api-registration` instance). Produces: output `client_id` — consumed by Task 3's root outputs.
 
-- [ ] **Step 1: Write `variables.tf`**
+- [ ] **Step 1: Write `api-registration/variables.tf`**
 
 ```hcl
-variable "env_name" {
+variable "display_name" {
   type        = string
-  description = "Environment name, used in app registration display names (local, dev)"
-}
-
-variable "redirect_uri" {
-  type        = string
-  description = "SPA redirect URI for this environment (e.g. http://localhost:3000)"
+  description = "Display name for the API app registration (e.g. money-bae-api-local)"
 }
 ```
 
-- [ ] **Step 2: Write `main.tf`**
+- [ ] **Step 2: Write `api-registration/main.tf`**
 
 ```hcl
-resource "random_uuid" "api_scope_access_as_user" {}
+resource "random_uuid" "access_as_user" {}
 
 resource "azuread_application" "api" {
-  display_name     = "money-bae-api-${var.env_name}"
+  display_name     = var.display_name
   sign_in_audience = "AzureADMyOrg"
-  identifier_uris  = ["api://money-bae-api-${var.env_name}"]
+  identifier_uris  = ["api://${var.display_name}"]
 
   api {
     requested_access_token_version = 2
 
     oauth2_permission_scope {
-      id                         = random_uuid.api_scope_access_as_user.result
+      id                         = random_uuid.access_as_user.result
       value                      = "access_as_user"
       type                       = "User"
       enabled                    = true
-      admin_consent_description  = "Allow the app to access money-bae-api-${var.env_name} on behalf of the signed-in user"
-      admin_consent_display_name = "Access money-bae-api-${var.env_name}"
-      user_consent_description   = "Allow the app to access money-bae-api-${var.env_name} on your behalf"
-      user_consent_display_name  = "Access money-bae-api-${var.env_name}"
+      admin_consent_description  = "Allow the app to access ${var.display_name} on behalf of the signed-in user"
+      admin_consent_display_name = "Access ${var.display_name}"
+      user_consent_description   = "Allow the app to access ${var.display_name} on your behalf"
+      user_consent_display_name  = "Access ${var.display_name}"
     }
   }
 }
@@ -263,23 +269,85 @@ resource "azuread_application" "api" {
 resource "azuread_service_principal" "api" {
   client_id = azuread_application.api.client_id
 }
+```
 
+- [ ] **Step 3: Write `api-registration/outputs.tf`**
+
+```hcl
+output "client_id" {
+  value = azuread_application.api.client_id
+}
+
+output "identifier_uri" {
+  value = one(azuread_application.api.identifier_uris)
+}
+
+output "scope_id" {
+  value = random_uuid.access_as_user.result
+}
+
+output "service_principal_object_id" {
+  value = azuread_service_principal.api.object_id
+}
+```
+
+- [ ] **Step 4: Format and validate `api-registration` standalone**
+
+Run from `platform/entra-external-id/app-registrations/modules/api-registration/`:
+
+```bash
+terraform fmt -check
+terraform init -backend=false
+terraform validate
+```
+
+Expected: `fmt -check` clean, `init` downloads `azuread`/`random` plugins, `validate` prints `Success! The configuration is valid.` (Terraform treats any directory as a standalone root for `validate` purposes, so this works even though the directory is meant to be consumed as a module.)
+
+- [ ] **Step 5: Write `spa-registration/variables.tf`**
+
+```hcl
+variable "display_name" {
+  type        = string
+  description = "Display name for the SPA app registration (e.g. money-bae-local)"
+}
+
+variable "redirect_uris" {
+  type        = list(string)
+  description = "Redirect URIs for the SPA (PKCE) platform"
+}
+
+variable "api_client_id" {
+  type        = string
+  description = "Client ID of the API app registration this SPA is granted access to (an api-registration module instance's client_id output)"
+}
+
+variable "api_scope_id" {
+  type        = string
+  description = "Scope UUID this SPA requests (an api-registration module instance's scope_id output)"
+}
+
+variable "api_service_principal_object_id" {
+  type        = string
+  description = "Object ID of the API app registration's service principal, needed to grant the delegated permission (an api-registration module instance's service_principal_object_id output)"
+}
+```
+
+- [ ] **Step 6: Write `spa-registration/main.tf`**
+
+```hcl
 resource "azuread_application" "spa" {
-  display_name     = "money-bae-${var.env_name}"
+  display_name     = var.display_name
   sign_in_audience = "AzureADMyOrg"
 
   single_page_application {
-    # oauth.pstmn.io is Postman's OAuth2 callback proxy, included so the
-    # Postman collection (Task 5) can obtain real tokens for manual API
-    # testing without a second app registration.
-    redirect_uris = [var.redirect_uri, "https://oauth.pstmn.io/v1/callback"]
+    redirect_uris = var.redirect_uris
   }
 
   required_resource_access {
-    resource_app_id = azuread_application.api.client_id
+    resource_app_id = var.api_client_id
 
     resource_access {
-      id   = azuread_application.api.oauth2_permission_scope_ids["access_as_user"]
+      id   = var.api_scope_id
       type = "Scope"
     }
   }
@@ -291,30 +359,22 @@ resource "azuread_service_principal" "spa" {
 
 resource "azuread_service_principal_delegated_permission_grant" "spa_to_api" {
   service_principal_object_id          = azuread_service_principal.spa.object_id
-  resource_service_principal_object_id = azuread_service_principal.api.object_id
+  resource_service_principal_object_id = var.api_service_principal_object_id
   claim_values                         = ["access_as_user"]
 }
 ```
 
-- [ ] **Step 3: Write `outputs.tf`**
+- [ ] **Step 7: Write `spa-registration/outputs.tf`**
 
 ```hcl
-output "spa_client_id" {
+output "client_id" {
   value = azuread_application.spa.client_id
-}
-
-output "api_client_id" {
-  value = azuread_application.api.client_id
-}
-
-output "api_identifier_uri" {
-  value = one(azuread_application.api.identifier_uris)
 }
 ```
 
-- [ ] **Step 4: Format and validate this module standalone**
+- [ ] **Step 8: Format and validate `spa-registration` standalone**
 
-Run from `platform/entra-external-id/app-registrations/modules/app-registration-pair/`:
+Run from `platform/entra-external-id/app-registrations/modules/spa-registration/`:
 
 ```bash
 terraform fmt -check
@@ -322,13 +382,13 @@ terraform init -backend=false
 terraform validate
 ```
 
-Expected: same as Task 1 Step 6 — `fmt -check` clean, `init` downloads `azuread`/`random` plugins, `validate` prints `Success! The configuration is valid.` (Terraform treats any directory as a standalone root for `validate` purposes, so this works even though the directory is meant to be consumed as a module.)
+Expected: same as Step 4.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add platform/entra-external-id/app-registrations/modules/
-git commit -m "Add the app-registration-pair Terraform module"
+git commit -m "Add api-registration and spa-registration Terraform modules"
 ```
 
 ---
@@ -343,7 +403,7 @@ git commit -m "Add the app-registration-pair Terraform module"
 - Create: `platform/entra-external-id/app-registrations/environments/shared.tfvars`
 
 **Interfaces:**
-- Consumes: `module "app-registration-pair"` from Task 2 (`env_name`, `redirect_uri` in; `spa_client_id`, `api_client_id`, `api_identifier_uri` out).
+- Consumes: `api-registration` and `spa-registration` modules from Task 2 (see their Interfaces above).
 - Produces: root outputs `spa_client_id_local`, `spa_client_id_dev`, `api_client_id_local`, `api_client_id_dev`, `api_identifier_uri_local`, `api_identifier_uri_dev` — read via `terraform output` by the human (Task 4's runbook) and referenced by name in Task 5's Postman docs.
 
 - [ ] **Step 1: Write `providers.tf`**
@@ -395,18 +455,43 @@ variable "dev_redirect_uri" {
 - [ ] **Step 3: Write `main.tf`**
 
 ```hcl
-module "local" {
-  source = "./modules/app-registration-pair"
-
-  env_name     = "local"
-  redirect_uri = var.local_redirect_uri
+locals {
+  # oauth.pstmn.io is Postman's OAuth2 callback proxy, added to every SPA
+  # app's redirect URIs so the Postman collection (Task 5) can obtain real
+  # tokens for manual API testing without a second app registration.
+  postman_callback_redirect_uri = "https://oauth.pstmn.io/v1/callback"
 }
 
-module "dev" {
-  source = "./modules/app-registration-pair"
+module "api_local" {
+  source = "./modules/api-registration"
 
-  env_name     = "dev"
-  redirect_uri = var.dev_redirect_uri
+  display_name = "money-bae-api-local"
+}
+
+module "api_dev" {
+  source = "./modules/api-registration"
+
+  display_name = "money-bae-api-dev"
+}
+
+module "spa_local" {
+  source = "./modules/spa-registration"
+
+  display_name                    = "money-bae-local"
+  redirect_uris                   = [var.local_redirect_uri, local.postman_callback_redirect_uri]
+  api_client_id                   = module.api_local.client_id
+  api_scope_id                    = module.api_local.scope_id
+  api_service_principal_object_id = module.api_local.service_principal_object_id
+}
+
+module "spa_dev" {
+  source = "./modules/spa-registration"
+
+  display_name                    = "money-bae-dev"
+  redirect_uris                   = [var.dev_redirect_uri, local.postman_callback_redirect_uri]
+  api_client_id                   = module.api_dev.client_id
+  api_scope_id                    = module.api_dev.scope_id
+  api_service_principal_object_id = module.api_dev.service_principal_object_id
 }
 ```
 
@@ -414,27 +499,27 @@ module "dev" {
 
 ```hcl
 output "spa_client_id_local" {
-  value = module.local.spa_client_id
+  value = module.spa_local.client_id
 }
 
 output "spa_client_id_dev" {
-  value = module.dev.spa_client_id
+  value = module.spa_dev.client_id
 }
 
 output "api_client_id_local" {
-  value = module.local.api_client_id
+  value = module.api_local.client_id
 }
 
 output "api_client_id_dev" {
-  value = module.dev.api_client_id
+  value = module.api_dev.client_id
 }
 
 output "api_identifier_uri_local" {
-  value = module.local.api_identifier_uri
+  value = module.api_local.identifier_uri
 }
 
 output "api_identifier_uri_dev" {
-  value = module.dev.api_identifier_uri
+  value = module.api_dev.identifier_uri
 }
 ```
 

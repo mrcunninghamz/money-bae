@@ -76,18 +76,21 @@ platform/entra-external-id/
 │   └── environments/
 │       └── shared.tfvars            # one tenant, not per-environment
 └── app-registrations/               # stage 2 — tenant-scoped auth
-    ├── main.tf                      # module "app_pair" x2 (local, dev)
+    ├── main.tf                      # api-registration x2 + spa-registration x2 (local, dev)
     ├── providers.tf                 # azuread provider, tenant_id = var.ciam_tenant_id
     ├── variables.tf
     ├── outputs.tf                   # SPA + API client IDs, API Application ID URIs, per env
     ├── modules/
-    │   └── app-registration-pair/   # one SPA app + one API app + scope + permission grant
+    │   ├── api-registration/        # one API app + exposed scope + service principal
+    │   │   ├── main.tf
+    │   │   ├── variables.tf
+    │   │   └── outputs.tf
+    │   └── spa-registration/        # one SPA app + permission grant against a given API
     │       ├── main.tf
     │       ├── variables.tf
     │       └── outputs.tf
     └── environments/
-        ├── local.tfvars
-        └── dev.tfvars
+        └── shared.tfvars            # both environments applied together, one state
 ```
 
 State: same shared backend as `platform/db` (`stmbtfstateshared` storage
@@ -103,7 +106,7 @@ terraform {
   required_version = ">= 1.1"
   required_providers {
     azurerm = { source = "hashicorp/azurerm", version = "=4.1.0" }
-    azapi   = { source = "azure/azapi", version = "~> 1.14" }
+    azapi   = { source = "azure/azapi", version = "=2.12.0" }
   }
   backend "azurerm" {}
 }
@@ -164,32 +167,48 @@ Outputs: `tenant_id` (from the resource's `output.tenantId`, exposed
 through the azapi resource's `output` attribute) and the tenant's default
 domain (`<name>.onmicrosoft.com` / `<name>.ciamlogin.com`).
 
-## `app-registrations/` — the `app-registration-pair` module
+## `app-registrations/` — two modules: `api-registration` and `spa-registration`
 
-Instantiated twice (`local`, `dev`), each taking `env_name` and
-`redirect_uri` as inputs:
+Split into two module *types* rather than one combined pair, following the
+same pattern used for this kind of infra elsewhere: one `api-registration`
+module (reusable per environment, or even per consumer), and a separate
+`spa-registration` module that takes an API's `client_id`/`scope_id` as
+inputs instead of creating its own API. This means a future SPA or tool
+could point at an existing API module instance without duplicating the
+API's definition — e.g. `platform/entra-external-id/app-registrations`'s
+root `main.tf` could later add a `module "spa_mobile"` alongside
+`spa_local`/`spa_dev`, both referencing the same `api_dev` instance.
 
-- **API app** (`money-bae-api-<env>`): `azuread_application` with
+- **`api-registration`** (instantiated as `money-bae-api-local`,
+  `money-bae-api-dev`): `azuread_application` with
   `sign_in_audience = "AzureADMyOrg"`, an `identifier_uris` entry
-  (`api://money-bae-api-<env>`), and one `api.oauth2_permission_scope`
-  block (`access_as_user`, admin+user consent). Paired
-  `azuread_service_principal`.
-- **SPA app** (`money-bae-<env>`): `azuread_application` with a
-  `single_page_application { redirect_uris = [var.redirect_uri] }` block
+  (`api://<display_name>`), and one `api.oauth2_permission_scope` block
+  (`access_as_user`, admin+user consent). Paired `azuread_service_principal`.
+  Outputs: `client_id`, `identifier_uri` (`one(identifier_uris)` —
+  `identifier_uris` is a `set(string)` in the `azuread` provider, so it
+  needs `one(...)` rather than index access to pull out its single
+  element), `scope_id` (the raw scope UUID), `service_principal_object_id`.
+- **`spa-registration`** (instantiated as `money-bae-local`,
+  `money-bae-dev`): `azuread_application` with a
+  `single_page_application { redirect_uris = var.redirect_uris }` block
   (PKCE flow — not the `web` platform block, which is for
   confidential/server-side clients) and `required_resource_access`
-  pointing at the API app's `access_as_user` scope. Paired
-  `azuread_service_principal`.
-- An `azuread_service_principal_delegated_permission_grant` pre-consenting
-  the SPA's access to `access_as_user`, so signed-in users aren't prompted
-  for admin consent.
+  pointing at the given `var.api_client_id`/`var.api_scope_id`. Paired
+  `azuread_service_principal`, plus an
+  `azuread_service_principal_delegated_permission_grant` (using
+  `var.api_service_principal_object_id`) pre-consenting the SPA's access
+  to `access_as_user`, so signed-in users aren't prompted for admin
+  consent. Output: `client_id`.
 
-Module outputs: SPA client ID, API client ID, API `one(identifier_uris)`
-(this becomes the Go API's future `OIDC_AUDIENCE`) — `identifier_uris` is a
-`set(string)` in the `azuread` provider, so it needs `one(...)` rather than
-index access to pull out its single element.
+The root `app-registrations/main.tf` wires the two together per
+environment (`module.spa_local` takes its `api_client_id`/`api_scope_id`/
+`api_service_principal_object_id` from `module.api_local`'s outputs, and
+likewise for `dev`), and adds Postman's OAuth2 callback proxy
+(`https://oauth.pstmn.io/v1/callback`) to every SPA's `redirect_uris` so
+the Postman collection (see below) can obtain real tokens without a
+second app registration.
 
-Redirect URIs (`environments/{local,dev}.tfvars`):
+Redirect URIs (root `variables.tf`, `local_redirect_uri`/`dev_redirect_uri`):
 - `local` → `http://localhost:3000` (matches `clients/web`'s `npm run dev`
   port per its `CLAUDE.md`).
 - `dev` → the web client's CloudFront domain, hardcoded once known.
