@@ -438,6 +438,7 @@ export async function deleteLedgerBill(
 export interface CurrentLedger {
   id: string
   date: string
+  name: string | null
   availableFunds: string
   paid: string
   planned: string
@@ -538,6 +539,15 @@ export interface PtoDetail extends Pto {
 
 export async function listPtos(): Promise<Pto[]> {
   return request<Pto[]>('/ptos')
+}
+
+export async function getCurrentPto(): Promise<Pto | null> {
+  try {
+    return await request<Pto>('/ptos/current')
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('404')) return null
+    throw err
+  }
 }
 
 export async function getPto(id: string): Promise<PtoDetail> {

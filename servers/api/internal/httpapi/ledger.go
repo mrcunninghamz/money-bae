@@ -389,6 +389,7 @@ type checkInResponse struct {
 type currentLedgerResponse struct {
 	ID             uuid.UUID       `json:"id"`
 	Date           time.Time       `json:"date"`
+	Name           *string         `json:"name"`
 	AvailableFunds decimal.Decimal `json:"availableFunds"`
 	Paid           decimal.Decimal `json:"paid"`
 	Planned        decimal.Decimal `json:"planned"`
@@ -448,6 +449,7 @@ func toCurrentLedgerResponse(ledger models.Ledger) currentLedgerResponse {
 	return currentLedgerResponse{
 		ID:             ledger.ID,
 		Date:           ledger.Date,
+		Name:           ledger.Name,
 		AvailableFunds: totals.availableFunds,
 		Paid:           totals.paid,
 		Planned:        totals.planned,

@@ -114,6 +114,32 @@ func findOwnedPto(w http.ResponseWriter, r *http.Request, db *gorm.DB, userID uu
 	return pto, true
 }
 
+// currentPtoHandler backs the home dashboard's PTO shortcut, which only
+// needs to know whether the current calendar year has a PTO record and its
+// remaining hours — not the full PTO history.
+func currentPtoHandler(db *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := auth.PrincipalFromContext(r.Context())
+		if !ok {
+			http.Error(w, "no authenticated user", http.StatusInternalServerError)
+			return
+		}
+
+		var pto models.Pto
+		err := db.Where("user_id = ? AND year = ?", principal.UserID, time.Now().Year()).First(&pto).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			http.Error(w, "no pto for the current year", http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, "failed to look up current pto", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, toPtoResponse(pto))
+	}
+}
+
 func createPtoHandler(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		principal, ok := auth.PrincipalFromContext(r.Context())

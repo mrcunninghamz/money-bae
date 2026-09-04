@@ -499,6 +499,25 @@ func TestCurrentLedger_ComputesTotals(t *testing.T) {
 	}
 }
 
+func TestCurrentLedger_IncludesName(t *testing.T) {
+	router, db := newLedgerTestRouter(t)
+	user := seedCurrentUser(t, db)
+
+	ledger := models.Ledger{
+		UserID: user.ID, Date: time.Now(), Name: strPtr("December P1"),
+		BankBalance: decimal.Zero, Income: decimal.Zero, Expenses: decimal.Zero,
+	}
+	if err := db.Create(&ledger).Error; err != nil {
+		t.Fatalf("failed to seed ledger: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodGet, "/ledgers/current", nil)
+	got := decodeCurrentLedgerResponse(t, rec)
+	if got.Name == nil || *got.Name != "December P1" {
+		t.Fatalf("expected name %q, got %+v", "December P1", got.Name)
+	}
+}
+
 func TestCurrentLedger_NoLedgers_Returns404(t *testing.T) {
 	router, _ := newLedgerTestRouter(t)
 

@@ -3,8 +3,13 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Mascot } from '#/components/Mascot'
 import { PageHeader } from '#/components/PageHeader'
 import { SparkBars } from '#/components/SparkBars'
-import type { Bill, CurrentLedger, LedgerHistoryEntry } from '#/data/api'
-import { getCurrentLedger, getLedgerHistory, moneyToNumber } from '#/data/api'
+import type { Bill, CurrentLedger, LedgerHistoryEntry, Pto } from '#/data/api'
+import {
+  getCurrentLedger,
+  getCurrentPto,
+  getLedgerHistory,
+  moneyToNumber,
+} from '#/data/api'
 import { formatCurrency, formatDateMMDDYYYY } from '#/data/format'
 import type { SparkPoint } from '#/data/mockData'
 import { useAppStore } from '#/data/store'
@@ -62,16 +67,12 @@ function historyToSparkPoints(history: LedgerHistoryEntry[]): SparkPoint[] {
 function HomePage() {
   const store = useAppStore()
   const navigate = useNavigate()
-  const currentYearPto = store.ptos.find(
-    (p) => p.year === new Date().getFullYear(),
-  )
   const [currentLedger, setCurrentLedger] = useState<CurrentLedger | null>(null)
   const [history, setHistory] = useState<LedgerHistoryEntry[]>([])
+  const [currentYearPto, setCurrentYearPto] = useState<Pto | null>(null)
 
   useEffect(() => {
     void store.ensureBills()
-    void store.ensureLedgers()
-    void store.ensurePtos()
     getCurrentLedger()
       .then(setCurrentLedger)
       .catch((err: unknown) => {
@@ -81,6 +82,11 @@ function HomePage() {
       .then(setHistory)
       .catch((err: unknown) => {
         console.error('failed to load ledger history', err)
+      })
+    getCurrentPto()
+      .then(setCurrentYearPto)
+      .catch((err: unknown) => {
+        console.error('failed to load current pto', err)
       })
   }, [])
 
@@ -96,9 +102,6 @@ function HomePage() {
   const plannedPct = availableFunds
     ? Math.min(100, Math.max(0, (planned / availableFunds) * 100))
     : 0
-  const cycleName = currentLedger
-    ? (store.ledgers.find((l) => l.id === currentLedger.id)?.name ?? null)
-    : null
   const nextUp = upcomingBills(store.bills, new Date())
 
   return (
@@ -107,7 +110,7 @@ function HomePage() {
         kicker="current cycle"
         title={
           currentLedger
-            ? `${cycleName ?? 'Current cycle'} · ${formatDateMMDDYYYY(currentLedger.date)}`
+            ? `${currentLedger.name ?? 'Current cycle'} · ${formatDateMMDDYYYY(currentLedger.date)}`
             : 'Current cycle'
         }
       />

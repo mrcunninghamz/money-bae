@@ -94,6 +94,62 @@ func TestListPtos_OrderParam_DefaultsNewestFirst(t *testing.T) {
 	}
 }
 
+func TestCurrentPto_ReturnsThisYearsRecord(t *testing.T) {
+	router, db := newPtoTestRouter(t)
+	user := seedCurrentUser(t, db)
+
+	thisYear := time.Now().Year()
+	other := models.Pto{UserID: user.ID, Year: thisYear - 1, AvailableHours: decimal.NewFromInt(184), HoursRemaining: decimal.NewFromInt(184)}
+	if err := db.Create(&other).Error; err != nil {
+		t.Fatalf("failed to seed other-year pto: %v", err)
+	}
+	current := models.Pto{UserID: user.ID, Year: thisYear, AvailableHours: decimal.NewFromInt(200), HoursRemaining: decimal.NewFromInt(150)}
+	if err := db.Create(&current).Error; err != nil {
+		t.Fatalf("failed to seed current-year pto: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodGet, "/ptos/current", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	got := decodePtoResponse(t, rec)
+	if got.ID != current.ID {
+		t.Fatalf("expected the current year's pto %s, got %s", current.ID, got.ID)
+	}
+}
+
+func TestCurrentPto_NoRecordForThisYear_Returns404(t *testing.T) {
+	router, db := newPtoTestRouter(t)
+	user := seedCurrentUser(t, db)
+	other := models.Pto{UserID: user.ID, Year: time.Now().Year() - 1, AvailableHours: decimal.NewFromInt(184), HoursRemaining: decimal.NewFromInt(184)}
+	if err := db.Create(&other).Error; err != nil {
+		t.Fatalf("failed to seed other-year pto: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodGet, "/ptos/current", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCurrentPto_OnlyConsidersOwnRecords(t *testing.T) {
+	router, db := newPtoTestRouter(t)
+
+	otherUser := models.User{Sub: "auth0|other", Email: "other@example.com"}
+	if err := db.Create(&otherUser).Error; err != nil {
+		t.Fatalf("failed to seed other user: %v", err)
+	}
+	otherPto := models.Pto{UserID: otherUser.ID, Year: time.Now().Year(), AvailableHours: decimal.NewFromInt(200), HoursRemaining: decimal.NewFromInt(200)}
+	if err := db.Create(&otherPto).Error; err != nil {
+		t.Fatalf("failed to seed other user's pto: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodGet, "/ptos/current", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestGetPto_IncludesPtoPlansAndHolidayHours(t *testing.T) {
 	router, db := newPtoTestRouter(t)
 	user := seedCurrentUser(t, db)
