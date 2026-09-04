@@ -27,20 +27,25 @@ function checkInMessage(
   }
 }
 
-function ordinalDay(day: number): string {
+function dueDayLabel(day: number): string {
+  if (day >= 31) return 'month end'
   if (day % 10 === 1 && day !== 11) return `${day}st`
   if (day % 10 === 2 && day !== 12) return `${day}nd`
   if (day % 10 === 3 && day !== 13) return `${day}rd`
   return `${day}th`
 }
 
+const NEXT_UP_LIMIT = 5
+
 // Bills due later this month, from today's day-of-month through the 31st —
 // bills already due earlier this month, or due next month, don't show here.
+// Capped to the soonest NEXT_UP_LIMIT so the card doesn't grow unbounded.
 function upcomingBills(bills: Bill[], today: Date): Bill[] {
   const todayDay = today.getDate()
   return bills
     .filter((b) => b.dueDay != null && b.dueDay >= todayDay)
     .sort((a, b) => (a.dueDay ?? 0) - (b.dueDay ?? 0))
+    .slice(0, NEXT_UP_LIMIT)
 }
 
 function historyToSparkPoints(history: LedgerHistoryEntry[]): SparkPoint[] {
@@ -264,9 +269,13 @@ function HomePage() {
               >
                 <span
                   className="mono"
-                  style={{ color: 'rgba(233,233,237,.45)', width: 44 }}
+                  style={{
+                    color: 'rgba(233,233,237,.45)',
+                    width: 62,
+                    whiteSpace: 'nowrap',
+                  }}
                 >
-                  {ordinalDay(bill.dueDay ?? 0)}
+                  {dueDayLabel(bill.dueDay ?? 0)}
                 </span>
                 <span className="flex-1">{bill.name}</span>
                 <span className="mono">
