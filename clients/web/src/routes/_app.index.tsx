@@ -3,10 +3,9 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Mascot } from '#/components/Mascot'
 import { PageHeader } from '#/components/PageHeader'
 import { SparkBars } from '#/components/SparkBars'
-import type { CurrentLedger, LedgerHistoryEntry } from '#/data/api'
-import { getCurrentLedger, getLedgerHistory } from '#/data/api'
+import type { Bill, CurrentLedger, LedgerHistoryEntry } from '#/data/api'
+import { getCurrentLedger, getLedgerHistory, moneyToNumber } from '#/data/api'
 import { formatCurrency, formatDateMMDDYYYY } from '#/data/format'
-import { nextUp } from '#/data/mockData'
 import type { SparkPoint } from '#/data/mockData'
 import { useAppStore } from '#/data/store'
 
@@ -14,28 +13,34 @@ export const Route = createFileRoute('/_app/')({
   component: HomePage,
 })
 
-function checkInCopy(
+function checkInMessage(
   status: CurrentLedger['checkIn']['status'],
   net: number,
-): { title: string; subtitle: string } {
-  const amount = formatCurrency(net)
+): string {
   switch (status) {
     case 'good':
-      return {
-        title: "you're doing great, bae!",
-        subtitle: `${amount} free this cycle.`,
-      }
+      return `looking good. ${formatCurrency(net)} free after everything.`
     case 'tight':
-      return {
-        title: "it's a little tight, bae",
-        subtitle: `only ${amount} free this cycle — watch what's coming up.`,
-      }
+      return `cutting it close. ${formatCurrency(net)} free after everything.`
     case 'negative':
-      return {
-        title: 'uh oh, bae...',
-        subtitle: `you're ${formatCurrency(Math.abs(net))} in the hole this cycle.`,
-      }
+      return `uh oh. ${formatCurrency(Math.abs(net))} in the hole after everything.`
   }
+}
+
+function ordinalDay(day: number): string {
+  if (day % 10 === 1 && day !== 11) return `${day}st`
+  if (day % 10 === 2 && day !== 12) return `${day}nd`
+  if (day % 10 === 3 && day !== 13) return `${day}rd`
+  return `${day}th`
+}
+
+// Bills due later this month, from today's day-of-month through the 31st —
+// bills already due earlier this month, or due next month, don't show here.
+function upcomingBills(bills: Bill[], today: Date): Bill[] {
+  const todayDay = today.getDate()
+  return bills
+    .filter((b) => b.dueDay != null && b.dueDay >= todayDay)
+    .sort((a, b) => (a.dueDay ?? 0) - (b.dueDay ?? 0))
 }
 
 function historyToSparkPoints(history: LedgerHistoryEntry[]): SparkPoint[] {
@@ -84,6 +89,7 @@ function HomePage() {
   const cycleName = currentLedger
     ? (store.ledgers.find((l) => l.id === currentLedger.id)?.name ?? null)
     : null
+  const nextUp = upcomingBills(store.bills, new Date())
 
   return (
     <>
@@ -167,28 +173,31 @@ function HomePage() {
           >
             <span className="card-kicker mono">bae check-in</span>
             <div className="flex items-center gap-[14px]">
-              <Mascot size={86} />
+              <Mascot size={56} />
               <div>
-                <div style={{ fontSize: 14, lineHeight: 1.4 }}>
+                <div style={{ fontSize: 15, lineHeight: 1.4 }}>
                   {currentLedger
-                    ? checkInCopy(currentLedger.checkIn.status, net).title
+                    ? checkInMessage(currentLedger.checkIn.status, net)
                     : 'ni howdy!'}
                 </div>
                 <div
                   className="mono"
                   style={{
-                    fontSize: 11,
-                    color: 'rgba(233,233,237,.45)',
-                    marginTop: 5,
+                    fontSize: 12,
+                    color: 'rgba(233,233,237,.5)',
+                    marginTop: 6,
                   }}
                 >
                   {currentLedger
-                    ? checkInCopy(currentLedger.checkIn.status, net).subtitle
+                    ? `${currentLedger.unpaidCount} bill${currentLedger.unpaidCount === 1 ? '' : 's'} unpaid · ${formatCurrency(planned)} still planned`
                     : 'add a ledger cycle to see your check-in.'}
                 </div>
               </div>
             </div>
-            <div className="flex gap-[8px]" style={{ marginTop: 2 }}>
+            <div
+              className="flex items-center gap-[14px]"
+              style={{ marginTop: 2 }}
+            >
               <button
                 className="btn btn-secondary mono"
                 style={{ fontSize: 12 }}
@@ -205,7 +214,7 @@ function HomePage() {
               </button>
               <button
                 className="btn btn-ghost mono"
-                style={{ fontSize: 12 }}
+                style={{ fontSize: 12, color: '#9184d9' }}
                 disabled={!firstPto}
                 onClick={() =>
                   firstPto &&
@@ -215,7 +224,9 @@ function HomePage() {
                   })
                 }
               >
-                PTO
+                PTO{' '}
+                {firstPto &&
+                  `${Math.round(Number(firstPto.hoursRemaining))}h left`}
               </button>
             </div>
           </div>
@@ -237,9 +248,17 @@ function HomePage() {
             style={{ background: '#1b1d2e', padding: '16px 18px', gap: 8 }}
           >
             <span className="card-kicker mono">next up</span>
-            {nextUp.map((entry) => (
+            {nextUp.length === 0 && (
               <div
-                key={entry.name}
+                className="mono"
+                style={{ fontSize: 12, color: 'rgba(233,233,237,.4)' }}
+              >
+                nothing due the rest of this month
+              </div>
+            )}
+            {nextUp.map((bill) => (
+              <div
+                key={bill.id}
                 className="flex items-baseline gap-[10px]"
                 style={{ fontSize: 13 }}
               >
@@ -247,10 +266,12 @@ function HomePage() {
                   className="mono"
                   style={{ color: 'rgba(233,233,237,.45)', width: 44 }}
                 >
-                  {entry.due}
+                  {ordinalDay(bill.dueDay ?? 0)}
                 </span>
-                <span className="flex-1">{entry.name}</span>
-                <span className="mono">{formatCurrency(entry.amount)}</span>
+                <span className="flex-1">{bill.name}</span>
+                <span className="mono">
+                  {formatCurrency(moneyToNumber(bill.amount))}
+                </span>
               </div>
             ))}
           </div>
