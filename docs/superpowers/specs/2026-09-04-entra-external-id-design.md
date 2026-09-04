@@ -93,10 +93,26 @@ platform/entra-external-id/
         └── shared.tfvars            # both environments applied together, one state
 ```
 
-State: same shared backend as `platform/db` (`stmbtfstateshared` storage
-account, `rg-moneybae-tfstate-shared` resource group, `tfstate`
-container), new keys `identity/tenant.tfstate` and
-`identity/app-registrations.tfstate`.
+State: its own company-level shared backend — `stkkbtfstateshared` storage
+account, `rg-kkbae-tfstate-shared` resource group, `tfstate` container —
+separate from `platform/db`'s existing `stmbtfstateshared`/
+`rg-moneybae-tfstate-shared` (which is money-bae product-level state).
+This follows the same company-vs-product naming split already applied to
+the tenant itself: `platform/entra-external-id` is company-level shared
+infrastructure, so its Terraform state doesn't belong in a
+product-specific backend, even though that backend already exists and
+reusing it would have been zero extra setup. Keys:
+`identity/tenant.tfstate` and `identity/app-registrations.tfstate`.
+
+Unlike `stmbtfstateshared` (already provisioned before this work), the
+`kkbae` backend doesn't exist yet and can't be created by the Terraform
+that needs it — a classic bootstrap chicken-and-egg (Terraform's
+`azurerm` backend needs the storage account to already exist before
+`terraform init` can target it). It's created via a one-time `az` CLI
+sequence (resource group, storage account, blob container), documented
+in `platform/entra-external-id/CLAUDE.md`, the same way this project
+already treats other one-time trust-establishing steps (the CIAM tenant
+re-login) as manual rather than Terraform-managed.
 
 ## `tenant/` — CIAM tenant creation
 
@@ -232,7 +248,17 @@ Redirect URIs (root `variables.tf`, `local_redirect_uri`/`dev_redirect_uri`):
   Graph-wrapping Terraform provider, or accepting manual Portal steps)
   before attempting either as code.
 - Wiring `clients/web`/`servers/api` to the new IdP is a separate,
-  later piece of work.
+  later piece of work. When that happens, revisit whether `spa-registration`
+  needs an explicit Microsoft Graph `openid`/`offline_access` permission
+  grant (MSAL typically wants these for ID/refresh tokens) — a reference
+  B2C project adds this via `required_resource_access` on the app, but
+  CIAM ("external tenant") is architecturally different from B2C: per
+  Microsoft's own docs, external-tenant customers can't self-consent to
+  *any* permission, even default ones — an admin must grant consent on
+  their behalf. Adding the Graph permission without also wiring its
+  consent grant could ship a config that looks complete but silently
+  fails at sign-in, so this needs verifying against CIAM-specific
+  documentation (not just porting the B2C pattern) at implementation time.
 
 ## Postman updates (final step of this pass)
 
