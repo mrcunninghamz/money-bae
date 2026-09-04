@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { EntityActionBar } from '#/components/EntityActionBar'
 import { PageHeader } from '#/components/PageHeader'
@@ -15,6 +16,10 @@ function LedgerListPage() {
   const store = useAppStore()
   const navigate = useNavigate()
   const selection = useMultiSelect()
+
+  useEffect(() => {
+    void store.ensureLedgers()
+  }, [])
 
   function handleEdit() {
     const [id] = selection.selectedIds

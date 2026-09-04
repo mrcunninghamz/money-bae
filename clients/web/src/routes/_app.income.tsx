@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import {
   createColumnHelper,
   createPaginatedRowModel,
@@ -45,6 +46,10 @@ const MONO_COLUMN_INDEXES = new Set([1, 2])
 function IncomePage() {
   const store = useAppStore()
   const selection = useMultiSelect()
+
+  useEffect(() => {
+    void store.ensureIncome()
+  }, [])
 
   const columns = columnHelper.columns([
     columnHelper.display({

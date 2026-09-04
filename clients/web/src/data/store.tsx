@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   createBill,
@@ -92,6 +92,10 @@ interface AppStore {
   pendingDelete: PendingDelete | null
   modal: ModalKind
   modalMode: ModalMode
+  ensureIncome: () => Promise<void>
+  ensureBills: () => Promise<void>
+  ensureLedgers: () => Promise<void>
+  ensurePtos: () => Promise<void>
   signIn: () => void
   signOut: () => void
   toggleAccountMenu: () => void
@@ -212,65 +216,67 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(AUTH_STORAGE_KEY, String(authed))
   }, [authed])
 
-  useEffect(() => {
-    let cancelled = false
-    listIncomes()
-      .then((rows) => {
-        if (!cancelled) setIncome(rows)
-      })
+  // Each list loads lazily, the first time a route that actually needs it
+  // calls ensureX — not eagerly for the whole app on mount. The ref-cached
+  // promise dedupes concurrent/repeat calls (e.g. two routes needing bills)
+  // so it fetches at most once per session; a failed fetch clears the cache
+  // so the next visit can retry.
+  const incomePromiseRef = useRef<Promise<void> | null>(null)
+  const billsPromiseRef = useRef<Promise<void> | null>(null)
+  const ledgersPromiseRef = useRef<Promise<void> | null>(null)
+  const ptosPromiseRef = useRef<Promise<void> | null>(null)
+
+  function ensureIncome(): Promise<void> {
+    if (incomePromiseRef.current) return incomePromiseRef.current
+    const promise = listIncomes()
+      .then(setIncome)
       .catch((err: unknown) => {
         console.error('failed to load incomes', err)
-        if (!cancelled) showToast('error', "couldn't load your incomes")
+        showToast('error', "couldn't load your incomes")
+        incomePromiseRef.current = null
       })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    incomePromiseRef.current = promise
+    return promise
+  }
 
-  useEffect(() => {
-    let cancelled = false
-    listBills()
-      .then((rows) => {
-        if (!cancelled) setBills(rows)
-      })
+  function ensureBills(): Promise<void> {
+    if (billsPromiseRef.current) return billsPromiseRef.current
+    const promise = listBills()
+      .then(setBills)
       .catch((err: unknown) => {
         console.error('failed to load bills', err)
-        if (!cancelled) showToast('error', "couldn't load your bills")
+        showToast('error', "couldn't load your bills")
+        billsPromiseRef.current = null
       })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    billsPromiseRef.current = promise
+    return promise
+  }
 
-  useEffect(() => {
-    let cancelled = false
-    listLedgers()
-      .then((rows) => {
-        if (!cancelled) setLedgers(rows)
-      })
+  function ensureLedgers(): Promise<void> {
+    if (ledgersPromiseRef.current) return ledgersPromiseRef.current
+    const promise = listLedgers()
+      .then(setLedgers)
       .catch((err: unknown) => {
         console.error('failed to load ledgers', err)
-        if (!cancelled) showToast('error', "couldn't load your ledger")
+        showToast('error', "couldn't load your ledger")
+        ledgersPromiseRef.current = null
       })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    ledgersPromiseRef.current = promise
+    return promise
+  }
 
-  useEffect(() => {
-    let cancelled = false
-    listPtos()
-      .then((rows) => {
-        if (!cancelled) setPtos(rows)
-      })
+  function ensurePtos(): Promise<void> {
+    if (ptosPromiseRef.current) return ptosPromiseRef.current
+    const promise = listPtos()
+      .then(setPtos)
       .catch((err: unknown) => {
         console.error('failed to load ptos', err)
-        if (!cancelled) showToast('error', "couldn't load your PTO records")
+        showToast('error', "couldn't load your PTO records")
+        ptosPromiseRef.current = null
       })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    ptosPromiseRef.current = promise
+    return promise
+  }
 
   const store: AppStore = {
     authed,
@@ -292,6 +298,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     pendingDelete,
     modal,
     modalMode,
+    ensureIncome,
+    ensureBills,
+    ensureLedgers,
+    ensurePtos,
     signIn: () => setAuthed(true),
     signOut: () => {
       setAuthed(false)

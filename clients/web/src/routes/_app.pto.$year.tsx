@@ -23,6 +23,10 @@ function PtoYearPage() {
 
   const ptoYear = store.ptos.find((p) => String(p.year) === year)
 
+  useEffect(() => {
+    void store.ensurePtos()
+  }, [])
+
   function reload(id: string) {
     getPto(id)
       .then(setDetail)

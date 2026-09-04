@@ -69,6 +69,9 @@ function HomePage() {
   const [history, setHistory] = useState<LedgerHistoryEntry[]>([])
 
   useEffect(() => {
+    void store.ensureBills()
+    void store.ensureLedgers()
+    void store.ensurePtos()
     getCurrentLedger()
       .then(setCurrentLedger)
       .catch((err: unknown) => {

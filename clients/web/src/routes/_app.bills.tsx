@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { EntityActionBar } from '#/components/EntityActionBar'
 import { PageHeader } from '#/components/PageHeader'
@@ -14,6 +15,10 @@ export const Route = createFileRoute('/_app/bills')({
 function BillsPage() {
   const store = useAppStore()
   const selection = useMultiSelect()
+
+  useEffect(() => {
+    void store.ensureBills()
+  }, [])
 
   function handleEdit() {
     const [id] = selection.selectedIds

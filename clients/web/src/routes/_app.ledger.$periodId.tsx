@@ -31,6 +31,10 @@ function LedgerItemPage() {
   }
 
   useEffect(() => {
+    void store.ensureBills()
+  }, [])
+
+  useEffect(() => {
     store.setActiveLedger(periodId)
     setDetail(null)
     setLoadError(false)
