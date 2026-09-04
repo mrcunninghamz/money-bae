@@ -450,7 +450,7 @@ export interface LedgerHistoryEntry {
   id: string
   date: string
   name: string | null
-  netPercent: number
+  net: string
 }
 
 export async function getCurrentLedger(): Promise<CurrentLedger | null> {

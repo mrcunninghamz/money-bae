@@ -55,7 +55,7 @@ function historyToSparkPoints(history: LedgerHistoryEntry[]): SparkPoint[] {
       day: 'numeric',
       timeZone: 'UTC',
     }),
-    value: entry.netPercent,
+    value: Number(entry.net),
   }))
 }
 

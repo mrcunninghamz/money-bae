@@ -624,14 +624,13 @@ func seedLedger(t *testing.T, db *gorm.DB, userID uuid.UUID, date time.Time, ban
 	return ledger
 }
 
-func TestLedgerHistory_OrdersOldestToNewestWithNetPercent(t *testing.T) {
+func TestLedgerHistory_OrdersOldestToNewestWithNet(t *testing.T) {
 	router, db := newLedgerTestRouter(t)
 	user := seedCurrentUser(t, db)
 
 	older := seedLedger(t, db, user.ID, time.Now().AddDate(0, 0, -14), decimal.NewFromInt(100), decimal.Zero)
 	newer := seedLedger(t, db, user.ID, time.Now(), decimal.NewFromInt(200), decimal.Zero)
-	// older: net=100, availableFunds=100 -> 100%. newer: net=200, availableFunds=200 -> 100%.
-	// Give the newer ledger an unpaid bill so its net% differs from the older one.
+	// older: net=100 (availableFunds=100, no bills). newer: net=150 (availableFunds=200, one $50 unpaid bill).
 	seedLedgerBill(t, db, user.ID, newer.ID, decimal.NewFromInt(50), false)
 
 	rec := doJSON(t, router, http.MethodGet, "/ledgers/history", nil)
@@ -649,15 +648,15 @@ func TestLedgerHistory_OrdersOldestToNewestWithNetPercent(t *testing.T) {
 	if got[0].ID != older.ID || got[1].ID != newer.ID {
 		t.Fatalf("expected oldest-first ordering %s,%s, got %s,%s", older.ID, newer.ID, got[0].ID, got[1].ID)
 	}
-	if got[0].NetPercent != 100 {
-		t.Fatalf("expected older netPercent 100, got %v", got[0].NetPercent)
+	if !got[0].Net.Equal(decimal.NewFromInt(100)) {
+		t.Fatalf("expected older net 100, got %s", got[0].Net)
 	}
-	if got[1].NetPercent != 75 {
-		t.Fatalf("expected newer netPercent 75, got %v", got[1].NetPercent)
+	if !got[1].Net.Equal(decimal.NewFromInt(150)) {
+		t.Fatalf("expected newer net 150, got %s", got[1].Net)
 	}
 }
 
-func TestLedgerHistory_ZeroAvailableFunds_NetPercentZero(t *testing.T) {
+func TestLedgerHistory_ZeroAvailableFunds_NetIsZero(t *testing.T) {
 	router, db := newLedgerTestRouter(t)
 	user := seedCurrentUser(t, db)
 	seedLedger(t, db, user.ID, time.Now(), decimal.Zero, decimal.Zero)
@@ -667,8 +666,30 @@ func TestLedgerHistory_ZeroAvailableFunds_NetPercentZero(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if len(got) != 1 || got[0].NetPercent != 0 {
-		t.Fatalf("expected a single zero-percent entry, got %+v", got)
+	if len(got) != 1 || !got[0].Net.IsZero() {
+		t.Fatalf("expected a single zero-net entry, got %+v", got)
+	}
+}
+
+// Reproduces a real bug: a percent-of-available-funds metric forced this
+// case to 0 (division by a zero denominator), hiding a badly negative
+// cycle. The raw dollar net has no such blind spot.
+func TestLedgerHistory_NegativeNet_ZeroAvailableFunds(t *testing.T) {
+	router, db := newLedgerTestRouter(t)
+	user := seedCurrentUser(t, db)
+	ledger := seedLedger(t, db, user.ID, time.Now(), decimal.Zero, decimal.Zero)
+	seedLedgerBill(t, db, user.ID, ledger.ID, decimal.NewFromInt(1723), false)
+
+	rec := doJSON(t, router, http.MethodGet, "/ledgers/history", nil)
+	var got []ledgerHistoryEntry
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(got))
+	}
+	if !got[0].Net.Equal(decimal.NewFromInt(-1723)) {
+		t.Fatalf("expected net -1723 even with zero available funds, got %s", got[0].Net)
 	}
 }
 

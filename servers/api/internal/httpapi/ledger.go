@@ -484,32 +484,19 @@ func currentLedgerHandler(db *gorm.DB) http.HandlerFunc {
 }
 
 type ledgerHistoryEntry struct {
-	ID         uuid.UUID `json:"id"`
-	Date       time.Time `json:"date"`
-	Name       *string   `json:"name"`
-	NetPercent float64   `json:"netPercent"`
-}
-
-// netPercent is net as a share of that cycle's available funds — how much
-// of the total cash on hand was left over — rather than a raw dollar
-// amount, so cycles stay comparable regardless of bank-balance rollover
-// size. Reports 0 rather than dividing by zero when there were no
-// available funds at all.
-func netPercent(ledger models.Ledger) float64 {
-	totals := computeCycleTotals(ledger)
-	if totals.availableFunds.IsZero() {
-		return 0
-	}
-	pct, _ := totals.net.Div(totals.availableFunds).Mul(decimal.NewFromInt(100)).Float64()
-	return pct
+	ID   uuid.UUID       `json:"id"`
+	Date time.Time       `json:"date"`
+	Name *string         `json:"name"`
+	Net  decimal.Decimal `json:"net"`
 }
 
 func toLedgerHistoryEntry(ledger models.Ledger) ledgerHistoryEntry {
+	totals := computeCycleTotals(ledger)
 	return ledgerHistoryEntry{
-		ID:         ledger.ID,
-		Date:       ledger.Date,
-		Name:       ledger.Name,
-		NetPercent: netPercent(ledger),
+		ID:   ledger.ID,
+		Date: ledger.Date,
+		Name: ledger.Name,
+		Net:  totals.net,
 	}
 }
 
