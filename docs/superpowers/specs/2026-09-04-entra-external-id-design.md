@@ -117,6 +117,15 @@ provider "azurerm" {
 provider "azapi" {}
 ```
 
+The tenant is company-level shared infrastructure (potentially serving
+future products beyond money-bae), not product-level like the app
+registrations below — so `app_short_name` here defaults to `kkb` (the
+company short name, company `kkbae`), not `mb` (used elsewhere, e.g.
+`platform/db`, for the money-bae product itself). The tenant's own
+display name and subdomain (`KKBAE` / `kkbaeexternalid`) follow the same
+company-level naming, while the four app registrations keep their
+product-level `money-bae-*` names as specified.
+
 ```hcl
 # main.tf
 resource "azurerm_resource_group" "identity" {
@@ -127,7 +136,7 @@ resource "azurerm_resource_group" "identity" {
 
 resource "azapi_resource" "ciam_tenant" {
   type      = "Microsoft.AzureActiveDirectory/ciamDirectories@2023-05-17-preview"
-  name      = "moneybaeexternalid"   # <=26 chars, alphanumeric only, globally unique
+  name      = "kkbaeexternalid"   # <=26 chars, alphanumeric only, globally unique
   parent_id = azurerm_resource_group.identity.id
   location  = var.ciam_data_location  # "United States" | "Europe" | "Asia Pacific" | "Australia"
   tags      = var.tags
@@ -136,7 +145,7 @@ resource "azapi_resource" "ciam_tenant" {
     properties = {
       createTenantProperties = {
         countryCode = var.ciam_country_code   # e.g. "US"
-        displayName = "Money Bae"
+        displayName = "KKBAE"
       }
     }
     sku = {

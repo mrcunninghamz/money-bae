@@ -69,8 +69,8 @@ provider "azapi" {}
 ```hcl
 variable "app_short_name" {
   type        = string
-  description = "Application short name"
-  default     = "mb"
+  description = "Company short name (this is company-level shared infrastructure, not product-level — hence 'kkb' for company kkbae, not 'mb' for the money-bae product)"
+  default     = "kkb"
 }
 
 variable "location" {
@@ -100,13 +100,13 @@ variable "ciam_country_code" {
 variable "ciam_tenant_name" {
   type        = string
   description = "Globally-unique tenant name: alphanumeric only, max 26 chars. Becomes <name>.onmicrosoft.com and <name>.ciamlogin.com"
-  default     = "moneybaeexternalid"
+  default     = "kkbaeexternalid"
 }
 
 variable "ciam_display_name" {
   type        = string
   description = "Display name shown for the CIAM tenant"
-  default     = "Money Bae"
+  default     = "KKBAE"
 }
 
 variable "tags" {
@@ -170,13 +170,13 @@ output "resource_group_name" {
 - [ ] **Step 5: Write `environments/shared.tfvars`**
 
 ```hcl
-app_short_name     = "mb"
+app_short_name     = "kkb"
 location           = "centralus"
 location_abrv      = "cus"
 ciam_data_location = "United States"
 ciam_country_code  = "US"
-ciam_tenant_name   = "moneybaeexternalid"
-ciam_display_name  = "Money Bae"
+ciam_tenant_name   = "kkbaeexternalid"
+ciam_display_name  = "KKBAE"
 
 tags = {
   Environment = "shared"
@@ -580,7 +580,7 @@ terraform -chdir=tenant output -raw tenant_domain
 `authUrl`/`tokenUrl` follow the pattern
 `https://<ciam_tenant_name>.ciamlogin.com/<tenant_domain>/oauth2/v2.0/{authorize,token}`
 — e.g. for this tenant:
-`https://moneybaeexternalid.ciamlogin.com/moneybaeexternalid.onmicrosoft.com/oauth2/v2.0/authorize`.
+`https://kkbaeexternalid.ciamlogin.com/kkbaeexternalid.onmicrosoft.com/oauth2/v2.0/authorize`.
 `scope` is `<api_identifier_uri>/access_as_user`.
 
 ## Deferred (not covered by this Terraform)
@@ -712,8 +712,8 @@ fill in each environment's `clientId`/`authUrl`/`tokenUrl`/`scope`
 variables:
 
 - `clientId` — `terraform -chdir=platform/entra-external-id/app-registrations output -raw spa_client_id_local` (or `_dev`)
-- `authUrl` — `https://moneybaeexternalid.ciamlogin.com/moneybaeexternalid.onmicrosoft.com/oauth2/v2.0/authorize`
-- `tokenUrl` — `https://moneybaeexternalid.ciamlogin.com/moneybaeexternalid.onmicrosoft.com/oauth2/v2.0/token`
+- `authUrl` — `https://kkbaeexternalid.ciamlogin.com/kkbaeexternalid.onmicrosoft.com/oauth2/v2.0/authorize`
+- `tokenUrl` — `https://kkbaeexternalid.ciamlogin.com/kkbaeexternalid.onmicrosoft.com/oauth2/v2.0/token`
 - `scope` — `terraform -chdir=platform/entra-external-id/app-registrations output -raw api_identifier_uri_local` (or `_dev`) with `/access_as_user` appended
 
 Then in Postman, on a request using this collection's auth, click
