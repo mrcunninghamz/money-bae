@@ -4,6 +4,20 @@
 		"description": "Requests against the Go API in servers/api. Update this collection as routes are added.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
+	"auth": {
+		"type": "oauth2",
+		"oauth2": [
+			{ "key": "grant_type", "value": "authorization_code_with_pkce", "type": "string" },
+			{ "key": "authUrl", "value": "{{authUrl}}", "type": "string" },
+			{ "key": "accessTokenUrl", "value": "{{tokenUrl}}", "type": "string" },
+			{ "key": "clientId", "value": "{{clientId}}", "type": "string" },
+			{ "key": "scope", "value": "{{scope}}", "type": "string" },
+			{ "key": "redirect_uri", "value": "https://oauth.pstmn.io/v1/callback", "type": "string" },
+			{ "key": "client_authentication", "value": "header", "type": "string" },
+			{ "key": "addTokenTo", "value": "header", "type": "string" },
+			{ "key": "tokenName", "value": "money-bae-token", "type": "string" }
+		]
+	},
 	"variable": [
 		{
 			"key": "baseUrl",
@@ -12,7 +26,7 @@
 		{
 			"key": "token",
 			"value": "mock-token",
-			"description": "Ignored for now — MockVerifier is wired in and always authenticates as the seed user regardless of this value. Swap for a real bearer token once an IdP is configured."
+			"description": "Manually-pasted fallback bearer token. Prefer the collection's OAuth 2.0 auth (Get New Access Token in Postman) once a real IdP is wired in — see platform/entra-external-id/CLAUDE.md."
 		},
 		{
 			"key": "incomeId",
