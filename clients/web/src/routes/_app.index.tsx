@@ -1,42 +1,99 @@
+import { useEffect, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Mascot } from '#/components/Mascot'
 import { PageHeader } from '#/components/PageHeader'
 import { SparkBars } from '#/components/SparkBars'
-import { moneyToNumber } from '#/data/api'
-import { formatCurrency } from '#/data/format'
-import {
-  CURRENT_CYCLE_DATE,
-  CURRENT_CYCLE_LABEL,
-  DAYS_TO_PAYDAY,
-  nextUp,
-  sparkSeries,
-} from '#/data/mockData'
+import type { CurrentLedger, LedgerHistoryEntry } from '#/data/api'
+import { getCurrentLedger, getLedgerHistory } from '#/data/api'
+import { formatCurrency, formatDateMMDDYYYY } from '#/data/format'
+import { nextUp } from '#/data/mockData'
+import type { SparkPoint } from '#/data/mockData'
 import { useAppStore } from '#/data/store'
 
 export const Route = createFileRoute('/_app/')({
   component: HomePage,
 })
 
+function checkInCopy(
+  status: CurrentLedger['checkIn']['status'],
+  net: number,
+): { title: string; subtitle: string } {
+  const amount = formatCurrency(net)
+  switch (status) {
+    case 'good':
+      return {
+        title: "you're doing great, bae!",
+        subtitle: `${amount} free this cycle.`,
+      }
+    case 'tight':
+      return {
+        title: "it's a little tight, bae",
+        subtitle: `only ${amount} free this cycle — watch what's coming up.`,
+      }
+    case 'negative':
+      return {
+        title: 'uh oh, bae...',
+        subtitle: `you're ${formatCurrency(Math.abs(net))} in the hole this cycle.`,
+      }
+  }
+}
+
+function historyToSparkPoints(history: LedgerHistoryEntry[]): SparkPoint[] {
+  return history.map((entry) => ({
+    label: new Date(entry.date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    }),
+    value: entry.netPercent,
+  }))
+}
+
 function HomePage() {
   const store = useAppStore()
   const navigate = useNavigate()
-  // "Current cycle" is whichever ledger is most recent (the API returns
-  // ledgers newest-first by default) — the old mock's paid/planned/unpaid
-  // split doesn't have a clean equivalent without fetching that ledger's
-  // bill details, so this card sticks to what the ledger itself reports.
-  const latestLedger = store.ledgers.at(0)
   const firstPto = store.ptos.at(0)
-  const bank = latestLedger ? moneyToNumber(latestLedger.bankBalance) : 0
-  const cycleIncome = latestLedger ? moneyToNumber(latestLedger.income) : 0
-  const expenses = latestLedger ? moneyToNumber(latestLedger.expenses) : 0
-  const net = latestLedger ? moneyToNumber(latestLedger.net) : 0
-  const availableFunds = bank + cycleIncome
+  const [currentLedger, setCurrentLedger] = useState<CurrentLedger | null>(null)
+  const [history, setHistory] = useState<LedgerHistoryEntry[]>([])
+
+  useEffect(() => {
+    getCurrentLedger()
+      .then(setCurrentLedger)
+      .catch((err: unknown) => {
+        console.error('failed to load current ledger', err)
+      })
+    getLedgerHistory()
+      .then(setHistory)
+      .catch((err: unknown) => {
+        console.error('failed to load ledger history', err)
+      })
+  }, [])
+
+  const availableFunds = currentLedger
+    ? Number(currentLedger.availableFunds)
+    : 0
+  const paid = currentLedger ? Number(currentLedger.paid) : 0
+  const planned = currentLedger ? Number(currentLedger.planned) : 0
+  const net = currentLedger ? Number(currentLedger.net) : 0
+  const paidPct = availableFunds
+    ? Math.min(100, Math.max(0, (paid / availableFunds) * 100))
+    : 0
+  const plannedPct = availableFunds
+    ? Math.min(100, Math.max(0, (planned / availableFunds) * 100))
+    : 0
+  const cycleName = currentLedger
+    ? (store.ledgers.find((l) => l.id === currentLedger.id)?.name ?? null)
+    : null
 
   return (
     <>
       <PageHeader
         kicker="current cycle"
-        title={`${CURRENT_CYCLE_LABEL} · ${CURRENT_CYCLE_DATE}`}
+        title={
+          currentLedger
+            ? `${cycleName ?? 'Current cycle'} · ${formatDateMMDDYYYY(currentLedger.date)}`
+            : 'Current cycle'
+        }
       />
       <div
         className="flex min-w-0 flex-1 flex-col gap-[18px]"
@@ -52,9 +109,6 @@ function HomePage() {
           >
             <div className="flex items-baseline gap-[10px]">
               <span className="card-kicker mono">current cycle</span>
-              <span className="tag tag-accent mono flex-none whitespace-nowrap">
-                {DAYS_TO_PAYDAY} days to payday
-              </span>
             </div>
             <div className="flex flex-wrap items-end gap-[26px]">
               <div>
@@ -94,14 +148,15 @@ function HomePage() {
               className="flex overflow-hidden rounded-[5px]"
               style={{ height: 10, background: '#292b31' }}
             >
-              <div style={{ width: '54%', background: '#796cbf' }} />
-              <div style={{ width: '5%', background: '#423a6a' }} />
+              <div style={{ width: `${paidPct}%`, background: '#796cbf' }} />
+              <div style={{ width: `${plannedPct}%`, background: '#423a6a' }} />
             </div>
             <div
               className="mono flex flex-wrap gap-[16px]"
               style={{ fontSize: 11, color: 'rgba(233,233,237,.5)' }}
             >
-              <span>expenses {formatCurrency(expenses)}</span>
+              <span>paid {formatCurrency(paid)}</span>
+              <span>planned {formatCurrency(planned)}</span>
               <span>free {formatCurrency(net)}</span>
             </div>
           </div>
@@ -114,7 +169,11 @@ function HomePage() {
             <div className="flex items-center gap-[14px]">
               <Mascot size={86} />
               <div>
-                <div style={{ fontSize: 14, lineHeight: 1.4 }}>ni howdy!</div>
+                <div style={{ fontSize: 14, lineHeight: 1.4 }}>
+                  {currentLedger
+                    ? checkInCopy(currentLedger.checkIn.status, net).title
+                    : 'ni howdy!'}
+                </div>
                 <div
                   className="mono"
                   style={{
@@ -123,7 +182,9 @@ function HomePage() {
                     marginTop: 5,
                   }}
                 >
-                  sorry for our dust, we are doing some work!
+                  {currentLedger
+                    ? checkInCopy(currentLedger.checkIn.status, net).subtitle
+                    : 'add a ledger cycle to see your check-in.'}
                 </div>
               </div>
             </div>
@@ -131,12 +192,12 @@ function HomePage() {
               <button
                 className="btn btn-secondary mono"
                 style={{ fontSize: 12 }}
-                disabled={!latestLedger}
+                disabled={!currentLedger}
                 onClick={() =>
-                  latestLedger &&
+                  currentLedger &&
                   navigate({
                     to: '/ledger/$periodId',
-                    params: { periodId: latestLedger.id },
+                    params: { periodId: currentLedger.id },
                   })
                 }
               >
@@ -169,7 +230,7 @@ function HomePage() {
             style={{ background: '#1b1d2e', padding: '16px 18px', gap: 10 }}
           >
             <span className="card-kicker mono">net by cycle</span>
-            <SparkBars points={sparkSeries} />
+            <SparkBars points={historyToSparkPoints(history)} />
           </div>
           <div
             className="card elev-sm"

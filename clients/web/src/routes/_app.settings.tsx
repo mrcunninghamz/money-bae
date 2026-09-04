@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { AccountAvatar } from '#/components/AccountAvatar'
+import { Mascot } from '#/components/Mascot'
 import { PageHeader } from '#/components/PageHeader'
 import { useAppStore } from '#/data/store'
 
@@ -219,6 +220,46 @@ function SettingsPage() {
               Log out
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Nothing on this page is wired to real settings yet — this stays up
+          permanently (no close button) until that work happens. */}
+      <div
+        className="fixed inset-0 z-50 grid place-items-center p-4"
+        style={{ background: 'rgba(16,17,32,.72)' }}
+      >
+        <div
+          className="card elev-lg flex flex-col items-center"
+          style={{
+            background: '#1b1d2e',
+            border: '1px solid rgba(233,233,237,.14)',
+            padding: '28px 36px',
+            gap: 14,
+          }}
+        >
+          <Mascot size={96} />
+          <span
+            className="mono"
+            style={{
+              fontSize: 15,
+              letterSpacing: '.08em',
+              color: '#e9e9ed',
+              textAlign: 'center',
+            }}
+          >
+            UNDER CONSTRUCTION
+          </span>
+          <span
+            className="mono"
+            style={{
+              fontSize: 12,
+              color: 'rgba(233,233,237,.5)',
+              textAlign: 'center',
+            }}
+          >
+            bae is still wiring this page up.
+          </span>
         </div>
       </div>
     </>

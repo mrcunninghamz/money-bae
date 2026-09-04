@@ -435,6 +435,40 @@ export async function deleteLedgerBill(
   })
 }
 
+export interface CurrentLedger {
+  id: string
+  date: string
+  availableFunds: string
+  paid: string
+  planned: string
+  net: string
+  unpaidCount: number
+  checkIn: { status: 'good' | 'tight' | 'negative' }
+}
+
+export interface LedgerHistoryEntry {
+  id: string
+  date: string
+  name: string | null
+  netPercent: number
+}
+
+export async function getCurrentLedger(): Promise<CurrentLedger | null> {
+  try {
+    return await request<CurrentLedger>('/ledgers/current')
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('404')) return null
+    throw err
+  }
+}
+
+export async function getLedgerHistory(
+  limit?: number,
+): Promise<LedgerHistoryEntry[]> {
+  const query = limit ? `?limit=${limit}` : ''
+  return request<LedgerHistoryEntry[]>(`/ledgers/history${query}`)
+}
+
 export interface Pto {
   id: string
   year: number

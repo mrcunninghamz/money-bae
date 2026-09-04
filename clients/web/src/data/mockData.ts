@@ -20,22 +20,10 @@ export const nextUp: NextUpEntry[] = [
   { due: '05/01', name: 'Centerpoint', amount: 22.14 },
 ]
 
+// SparkPoint is the shared shape for SparkBars — home page cycles come from
+// GET /ledgers/history now, but the type stays here alongside the rest of
+// this file's decorative home-page content.
 export interface SparkPoint {
   label: string
   value: number
 }
-
-export const sparkSeries: SparkPoint[] = [
-  { label: 'Jul1', value: 3492 },
-  { label: 'Jul2', value: 2231 },
-  { label: 'Aug1', value: 2662 },
-  { label: 'Aug2', value: 892 },
-  { label: 'Sep1', value: 2583 },
-  { label: 'Sep2', value: 2856 },
-  { label: 'Oct1', value: 3550 },
-  { label: 'Nov2', value: 3109 },
-]
-
-export const CURRENT_CYCLE_LABEL = 'December P1'
-export const CURRENT_CYCLE_DATE = '12/12/2025'
-export const DAYS_TO_PAYDAY = 7
