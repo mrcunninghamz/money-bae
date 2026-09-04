@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { AccountAvatar } from '#/components/AccountAvatar'
 import { Mascot } from '#/components/Mascot'
 import { PageHeader } from '#/components/PageHeader'
@@ -10,6 +10,7 @@ export const Route = createFileRoute('/_app/settings')({
 
 function SettingsPage() {
   const store = useAppStore()
+  const navigate = useNavigate()
 
   return (
     <>
@@ -258,8 +259,15 @@ function SettingsPage() {
               textAlign: 'center',
             }}
           >
-            bae is still wiring this page up.
+            bae is still wiring this page up. kk?
           </span>
+          <button
+            className="btn btn-secondary mono"
+            style={{ fontSize: 12 }}
+            onClick={() => navigate({ to: '/' })}
+          >
+            Go home
+          </button>
         </div>
       </div>
     </>
