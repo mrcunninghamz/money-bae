@@ -184,8 +184,10 @@ Instantiated twice (`local`, `dev`), each taking `env_name` and
   the SPA's access to `access_as_user`, so signed-in users aren't prompted
   for admin consent.
 
-Module outputs: SPA client ID, API client ID, API `identifier_uris[0]`
-(this becomes the Go API's future `OIDC_AUDIENCE`).
+Module outputs: SPA client ID, API client ID, API `one(identifier_uris)`
+(this becomes the Go API's future `OIDC_AUDIENCE`) — `identifier_uris` is a
+`set(string)` in the `azuread` provider, so it needs `one(...)` rather than
+index access to pull out its single element.
 
 Redirect URIs (`environments/{local,dev}.tfvars`):
 - `local` → `http://localhost:3000` (matches `clients/web`'s `npm run dev`

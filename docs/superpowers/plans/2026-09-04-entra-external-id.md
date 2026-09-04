@@ -308,7 +308,7 @@ output "api_client_id" {
 }
 
 output "api_identifier_uri" {
-  value = azuread_application.api.identifier_uris[0]
+  value = one(azuread_application.api.identifier_uris)
 }
 ```
 
