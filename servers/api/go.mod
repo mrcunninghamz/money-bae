@@ -3,6 +3,7 @@ module github.com/mrcunninghamz/money-bae/servers/api
 go 1.27.1
 
 require (
+	github.com/Rhymond/go-money v1.0.15
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-gormigrate/gormigrate/v2 v2.1.6

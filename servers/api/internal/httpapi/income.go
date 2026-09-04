@@ -3,9 +3,12 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
+	money "github.com/Rhymond/go-money"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -15,27 +18,36 @@ import (
 )
 
 type incomeRequest struct {
-	Date     time.Time       `json:"date"`
-	Amount   decimal.Decimal `json:"amount"`
-	LedgerID *uuid.UUID      `json:"ledgerId"`
-	Notes    *string         `json:"notes"`
+	Date     time.Time   `json:"date"`
+	Amount   money.Money `json:"amount"`
+	LedgerID *uuid.UUID  `json:"ledgerId"`
+	Notes    *string     `json:"notes"`
 }
 
 type incomeResponse struct {
-	ID        uuid.UUID       `json:"id"`
-	Date      time.Time       `json:"date"`
-	Amount    decimal.Decimal `json:"amount"`
-	LedgerID  *uuid.UUID      `json:"ledgerId"`
-	Notes     *string         `json:"notes"`
-	CreatedAt time.Time       `json:"createdAt"`
-	UpdatedAt time.Time       `json:"updatedAt"`
+	ID        uuid.UUID   `json:"id"`
+	Date      time.Time   `json:"date"`
+	Amount    money.Money `json:"amount"`
+	LedgerID  *uuid.UUID  `json:"ledgerId"`
+	Notes     *string     `json:"notes"`
+	CreatedAt time.Time   `json:"createdAt"`
+	UpdatedAt time.Time   `json:"updatedAt"`
+}
+
+// validatedIncome is a decoded, fully-validated incomeRequest, with Amount
+// already converted to decimal.Decimal for storage.
+type validatedIncome struct {
+	Date     time.Time
+	Amount   decimal.Decimal
+	LedgerID *uuid.UUID
+	Notes    *string
 }
 
 func toIncomeResponse(income models.Income) incomeResponse {
 	return incomeResponse{
 		ID:        income.ID,
 		Date:      income.Date,
-		Amount:    income.Amount,
+		Amount:    decimalToMoney(income.Amount),
 		LedgerID:  income.LedgerID,
 		Notes:     income.Notes,
 		CreatedAt: income.CreatedAt,
@@ -52,21 +64,26 @@ func ledgerOwnedByUser(db *gorm.DB, ledgerID, userID uuid.UUID) bool {
 	return count > 0
 }
 
-func decodeIncomeRequest(w http.ResponseWriter, r *http.Request, db *gorm.DB, userID uuid.UUID) (incomeRequest, bool) {
+func decodeIncomeRequest(w http.ResponseWriter, r *http.Request, db *gorm.DB, userID uuid.UUID) (validatedIncome, bool) {
 	var req incomeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
-		return req, false
+		return validatedIncome{}, false
 	}
 	if req.Date.IsZero() {
 		http.Error(w, "date is required", http.StatusBadRequest)
-		return req, false
+		return validatedIncome{}, false
+	}
+	amount, ok := moneyToDecimal(req.Amount)
+	if !ok {
+		http.Error(w, "amount is required, in USD", http.StatusBadRequest)
+		return validatedIncome{}, false
 	}
 	if req.LedgerID != nil && !ledgerOwnedByUser(db, *req.LedgerID, userID) {
 		http.Error(w, "ledger not found", http.StatusBadRequest)
-		return req, false
+		return validatedIncome{}, false
 	}
-	return req, true
+	return validatedIncome{Date: req.Date, Amount: amount, LedgerID: req.LedgerID, Notes: req.Notes}, true
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
@@ -95,6 +112,7 @@ func createIncomeHandler(db *gorm.DB) http.HandlerFunc {
 			LedgerID: req.LedgerID,
 			Notes:    req.Notes,
 		}
+
 		if err := db.Create(&income).Error; err != nil {
 			http.Error(w, "failed to create income", http.StatusInternalServerError)
 			return
@@ -102,6 +120,39 @@ func createIncomeHandler(db *gorm.DB) http.HandlerFunc {
 
 		writeJSON(w, http.StatusCreated, toIncomeResponse(income))
 	}
+}
+
+// applyIncomeDateFilter narrows a query by the request's date filter:
+// ?year=YYYY, or ?from=/?to= (either or both, RFC3339), or neither for all
+// dates. year takes precedence if both are given.
+func applyIncomeDateFilter(query *gorm.DB, r *http.Request) (*gorm.DB, error) {
+	params := r.URL.Query()
+
+	if yearStr := params.Get("year"); yearStr != "" {
+		year, err := strconv.Atoi(yearStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid year: %q", yearStr)
+		}
+		from := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
+		to := time.Date(year+1, time.January, 1, 0, 0, 0, 0, time.UTC)
+		return query.Where("date >= ? AND date < ?", from, to), nil
+	}
+
+	if fromStr := params.Get("from"); fromStr != "" {
+		from, err := time.Parse(time.RFC3339, fromStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid from: %q", fromStr)
+		}
+		query = query.Where("date >= ?", from)
+	}
+	if toStr := params.Get("to"); toStr != "" {
+		to, err := time.Parse(time.RFC3339, toStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid to: %q", toStr)
+		}
+		query = query.Where("date <= ?", to)
+	}
+	return query, nil
 }
 
 func listIncomesHandler(db *gorm.DB) http.HandlerFunc {
@@ -112,8 +163,15 @@ func listIncomesHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		query, err := applyIncomeDateFilter(db.Where("user_id = ?", principal.UserID), r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		var incomes []models.Income
-		if err := db.Where("user_id = ?", principal.UserID).Find(&incomes).Error; err != nil {
+		order := "date " + orderDirection(r)
+		if err := query.Order(order).Find(&incomes).Error; err != nil {
 			http.Error(w, "failed to list incomes", http.StatusInternalServerError)
 			return
 		}
@@ -147,6 +205,26 @@ func findOwnedIncome(w http.ResponseWriter, r *http.Request, db *gorm.DB, userID
 	return income, true
 }
 
+// incomeDetailResponse is the "detail" shape (GET /incomes/{id} only): the
+// income's own fields plus its navigational property — the ledger it's
+// attached to, if any. List/create/update stay lean (ledgerId only).
+type incomeDetailResponse struct {
+	incomeResponse
+	Ledger *ledgerResponse `json:"ledger"`
+}
+
+func toIncomeDetailResponse(income models.Income) incomeDetailResponse {
+	var ledger *ledgerResponse
+	if income.Ledger != nil {
+		l := toLedgerResponse(*income.Ledger)
+		ledger = &l
+	}
+	return incomeDetailResponse{
+		incomeResponse: toIncomeResponse(income),
+		Ledger:         ledger,
+	}
+}
+
 func getIncomeHandler(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		principal, ok := auth.PrincipalFromContext(r.Context())
@@ -155,12 +233,24 @@ func getIncomeHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		income, ok := findOwnedIncome(w, r, db, principal.UserID)
-		if !ok {
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
 			return
 		}
 
-		writeJSON(w, http.StatusOK, toIncomeResponse(income))
+		var income models.Income
+		err = db.Preload("Ledger").Where("id = ? AND user_id = ?", id, principal.UserID).First(&income).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			http.Error(w, "income not found", http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, "failed to look up income", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, toIncomeDetailResponse(income))
 	}
 }
 

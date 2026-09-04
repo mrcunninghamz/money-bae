@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	money "github.com/Rhymond/go-money"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -64,7 +65,7 @@ func TestCreateIncome_Succeeds(t *testing.T) {
 
 	rec := doJSON(t, router, http.MethodPost, "/incomes", incomeRequest{
 		Date:   time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
-		Amount: decimal.NewFromInt(1500),
+		Amount: *money.New(150000, "USD"),
 	})
 
 	if rec.Code != http.StatusCreated {
@@ -74,8 +75,8 @@ func TestCreateIncome_Succeeds(t *testing.T) {
 	if got.ID == uuid.Nil {
 		t.Fatal("expected a generated id")
 	}
-	if !got.Amount.Equal(decimal.NewFromInt(1500)) {
-		t.Fatalf("expected amount 1500, got %s", got.Amount)
+	if got.Amount.Amount() != 150000 {
+		t.Fatalf("expected amount 1500 USD, got %+v", got.Amount)
 	}
 }
 
@@ -83,7 +84,19 @@ func TestCreateIncome_MissingDate_Returns400(t *testing.T) {
 	router, _ := newIncomeTestRouter(t)
 
 	rec := doJSON(t, router, http.MethodPost, "/incomes", incomeRequest{
-		Amount: decimal.NewFromInt(1500),
+		Amount: *money.New(150000, "USD"),
+	})
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestCreateIncome_MissingAmount_Returns400(t *testing.T) {
+	router, _ := newIncomeTestRouter(t)
+
+	rec := doJSON(t, router, http.MethodPost, "/incomes", incomeRequest{
+		Date: time.Now(),
 	})
 
 	if rec.Code != http.StatusBadRequest {
@@ -108,7 +121,7 @@ func TestCreateIncome_LedgerNotOwnedByUser_Returns400(t *testing.T) {
 
 	rec := doJSON(t, router, http.MethodPost, "/incomes", incomeRequest{
 		Date:     time.Now(),
-		Amount:   decimal.NewFromInt(100),
+		Amount:   *money.New(10000, "USD"),
 		LedgerID: &otherLedger.ID,
 	})
 
@@ -131,7 +144,7 @@ func TestCreateIncome_WithOwnLedger_Succeeds(t *testing.T) {
 
 	rec := doJSON(t, router, http.MethodPost, "/incomes", incomeRequest{
 		Date:     time.Now(),
-		Amount:   decimal.NewFromInt(100),
+		Amount:   *money.New(10000, "USD"),
 		LedgerID: &ledger.ID,
 	})
 
@@ -173,6 +186,67 @@ func TestListIncomes_OnlyReturnsCurrentUsersIncomes(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].ID != mine.ID {
 		t.Fatalf("expected exactly the current user's income, got %+v", got)
+	}
+}
+
+func TestListIncomes_OrderParam_ReversesOrder(t *testing.T) {
+	router, db := newIncomeTestRouter(t)
+	user := seedCurrentUser(t, db)
+
+	older := models.Income{UserID: user.ID, Date: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Amount: decimal.NewFromInt(10)}
+	if err := db.Create(&older).Error; err != nil {
+		t.Fatalf("failed to seed older income: %v", err)
+	}
+	newer := models.Income{UserID: user.ID, Date: time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC), Amount: decimal.NewFromInt(20)}
+	if err := db.Create(&newer).Error; err != nil {
+		t.Fatalf("failed to seed newer income: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodGet, "/incomes", nil)
+	var got []incomeResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(got) != 2 || got[0].ID != newer.ID || got[1].ID != older.ID {
+		t.Fatalf("expected [newer, older] by default, got %+v", got)
+	}
+
+	rec = doJSON(t, router, http.MethodGet, "/incomes?order=asc", nil)
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(got) != 2 || got[0].ID != older.ID || got[1].ID != newer.ID {
+		t.Fatalf("expected [older, newer] with order=asc, got %+v", got)
+	}
+}
+
+func TestGetIncome_IncludesNestedLedger(t *testing.T) {
+	router, db := newIncomeTestRouter(t)
+	user := seedCurrentUser(t, db)
+
+	ledger := models.Ledger{
+		UserID: user.ID, Date: time.Now(), Name: strPtr("December P1"),
+		BankBalance: decimal.Zero, Income: decimal.Zero, Expenses: decimal.Zero,
+	}
+	if err := db.Create(&ledger).Error; err != nil {
+		t.Fatalf("failed to seed ledger: %v", err)
+	}
+	income := models.Income{UserID: user.ID, Date: time.Now(), Amount: decimal.NewFromInt(10), LedgerID: &ledger.ID}
+	if err := db.Create(&income).Error; err != nil {
+		t.Fatalf("failed to seed income: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodGet, "/incomes/"+income.ID.String(), nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var got incomeDetailResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to decode response %q: %v", rec.Body.String(), err)
+	}
+	if got.Ledger == nil || got.Ledger.ID != ledger.ID {
+		t.Fatalf("expected nested ledger %s, got %+v", ledger.ID, got.Ledger)
 	}
 }
 
@@ -234,15 +308,15 @@ func TestUpdateIncome_Succeeds(t *testing.T) {
 	newDate := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
 	rec := doJSON(t, router, http.MethodPut, "/incomes/"+income.ID.String(), incomeRequest{
 		Date:   newDate,
-		Amount: decimal.NewFromInt(999),
+		Amount: *money.New(99900, "USD"),
 	})
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 	got := decodeIncomeResponse(t, rec)
-	if !got.Amount.Equal(decimal.NewFromInt(999)) {
-		t.Fatalf("expected amount 999, got %s", got.Amount)
+	if got.Amount.Amount() != 99900 {
+		t.Fatalf("expected amount 999 USD, got %+v", got.Amount)
 	}
 	if !got.Date.Equal(newDate) {
 		t.Fatalf("expected date %s, got %s", newDate, got.Date)
@@ -263,7 +337,7 @@ func TestUpdateIncome_BelongsToAnotherUser_Returns404(t *testing.T) {
 
 	rec := doJSON(t, router, http.MethodPut, "/incomes/"+income.ID.String(), incomeRequest{
 		Date:   time.Now(),
-		Amount: decimal.NewFromInt(999),
+		Amount: *money.New(99900, "USD"),
 	})
 
 	if rec.Code != http.StatusNotFound {

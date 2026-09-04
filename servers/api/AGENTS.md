@@ -44,17 +44,17 @@ Handlers read the current identity via `auth.PrincipalFromContext(ctx)`.
 
 ## Deploy
 
-Deploy infrastructure lives at `../api-infrastructure/` — a sibling of this
-Go module, not nested inside it, specifically so its `node_modules` can
-never collide with Go's own tooling (an earlier revision nested it inside
-`servers/api/`, which broke `go build ./...`/`go mod tidy` when CDK's
-bundled Go init-templates got mistaken for real Go source; moving it out
-fixed that at the root instead of working around it with scoped commands).
+Deploy infrastructure lives at `../../platform/api/` — outside this Go
+module (not nested inside it) so its `node_modules` can never collide with
+Go's own tooling (an earlier revision nested it inside `servers/api/`,
+which broke `go build ./...`/`go mod tidy` when CDK's bundled Go
+init-templates got mistaken for real Go source), and alongside the rest of
+the repo's infra-as-code (`platform/db/`, `platform/web-client/`).
 
-`../api-infrastructure/Dockerfile` builds the API into a container image
+`../../platform/api/Dockerfile` builds the API into a container image
 (build context is `servers/api/`: `docker build -f
-../api-infrastructure/Dockerfile -t money-bae-api:local .` run from
-`servers/api/`). `../api-infrastructure/cdk/` is a CDK app defining the AWS
+../../platform/api/Dockerfile -t money-bae-api:local .` run from
+`servers/api/`). `../../platform/api/cdk/` is a CDK app defining the AWS
 App Runner deployment (ECR repo, App Runner service, Secrets Manager
 reference for `DATABASE_URL`) — see its own directory for details. `cdk
 deploy` has not been run; this repo only generates the template (`cdk
