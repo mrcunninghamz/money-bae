@@ -1,7 +1,7 @@
 variable "app_short_name" {
   type        = string
-  description = "Application short name"
-  default     = "mb"
+  description = "Company short name (this is company-level shared infrastructure, not product-level — hence 'kkb' for company kkbae, not 'mb' for the money-bae product)"
+  default     = "kkb"
 }
 
 variable "location" {
@@ -31,13 +31,13 @@ variable "ciam_country_code" {
 variable "ciam_tenant_name" {
   type        = string
   description = "Globally-unique tenant name: alphanumeric only, max 26 chars. Becomes <name>.onmicrosoft.com and <name>.ciamlogin.com"
-  default     = "moneybaeexternalid"
+  default     = "kkbaeexternalid"
 }
 
 variable "ciam_display_name" {
   type        = string
   description = "Display name shown for the CIAM tenant"
-  default     = "Money Bae"
+  default     = "KKBAE"
 }
 
 variable "tags" {
