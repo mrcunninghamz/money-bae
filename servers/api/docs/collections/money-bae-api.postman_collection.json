@@ -14,6 +14,7 @@
 			{ "key": "scope", "value": "{{scope}}", "type": "string" },
 			{ "key": "redirect_uri", "value": "https://oauth.pstmn.io/v1/callback", "type": "string" },
 			{ "key": "client_authentication", "value": "header", "type": "string" },
+			{ "key": "challengeAlgorithm", "value": "S256", "type": "string" },
 			{ "key": "addTokenTo", "value": "header", "type": "string" },
 			{ "key": "tokenName", "value": "money-bae-token", "type": "string" }
 		]
@@ -51,12 +52,7 @@
 			"name": "Me",
 			"request": {
 				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer {{token}}"
-					}
-				],
+				"header": [],
 				"url": {
 					"raw": "{{baseUrl}}/me",
 					"host": ["{{baseUrl}}"],
@@ -84,7 +80,6 @@
 					"request": {
 						"method": "POST",
 						"header": [
-							{ "key": "Authorization", "value": "Bearer {{token}}" },
 							{ "key": "Content-Type", "value": "application/json" }
 						],
 						"body": {
@@ -102,9 +97,7 @@
 					"name": "List",
 					"request": {
 						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{token}}" }
-						],
+						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/incomes",
 							"host": ["{{baseUrl}}"],
@@ -116,9 +109,7 @@
 					"name": "Get",
 					"request": {
 						"method": "GET",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{token}}" }
-						],
+						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/incomes/{{incomeId}}",
 							"host": ["{{baseUrl}}"],
@@ -131,7 +122,6 @@
 					"request": {
 						"method": "PUT",
 						"header": [
-							{ "key": "Authorization", "value": "Bearer {{token}}" },
 							{ "key": "Content-Type", "value": "application/json" }
 						],
 						"body": {
@@ -149,9 +139,7 @@
 					"name": "Delete",
 					"request": {
 						"method": "DELETE",
-						"header": [
-							{ "key": "Authorization", "value": "Bearer {{token}}" }
-						],
+						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/incomes/{{incomeId}}",
 							"host": ["{{baseUrl}}"],
