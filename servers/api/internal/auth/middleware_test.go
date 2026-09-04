@@ -7,23 +7,22 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/mrcunninghamz/money-bae/servers/api/internal/auth"
-	"github.com/mrcunninghamz/money-bae/servers/api/internal/models"
-	"github.com/mrcunninghamz/money-bae/servers/api/internal/testdb"
 )
 
 type fakeVerifier struct {
-	claims *auth.Claims
-	err    error
+	principal *auth.UserPrincipal
+	err       error
 }
 
-func (f *fakeVerifier) Verify(ctx context.Context, rawIDToken string) (*auth.Claims, error) {
-	return f.claims, f.err
+func (f *fakeVerifier) Verify(ctx context.Context, rawIDToken string) (*auth.UserPrincipal, error) {
+	return f.principal, f.err
 }
 
 func TestRequireAuth_MissingHeader_Returns401(t *testing.T) {
-	db := testdb.New(t, &models.User{})
-	handler := auth.RequireAuth(&fakeVerifier{}, db)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := auth.RequireAuth(&fakeVerifier{})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("next handler should not be called")
 	}))
 
@@ -37,8 +36,7 @@ func TestRequireAuth_MissingHeader_Returns401(t *testing.T) {
 }
 
 func TestRequireAuth_VerifierError_Returns401(t *testing.T) {
-	db := testdb.New(t, &models.User{})
-	handler := auth.RequireAuth(&fakeVerifier{err: errors.New("bad token")}, db)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := auth.RequireAuth(&fakeVerifier{err: errors.New("bad token")})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("next handler should not be called")
 	}))
 
@@ -52,19 +50,20 @@ func TestRequireAuth_VerifierError_Returns401(t *testing.T) {
 	}
 }
 
-func TestRequireAuth_NewSub_CreatesUser(t *testing.T) {
-	db := testdb.New(t, &models.User{})
-	var gotUser *models.User
+func TestRequireAuth_ValidToken_PutsResolvedPrincipalInContext(t *testing.T) {
+	want := &auth.UserPrincipal{UserID: uuid.New(), Sub: "auth0|existing", Email: "existing@example.com"}
+
+	var got *auth.UserPrincipal
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, ok := auth.UserFromContext(r.Context())
+		principal, ok := auth.PrincipalFromContext(r.Context())
 		if !ok {
-			t.Fatal("expected user in context")
+			t.Fatal("expected principal in context")
 		}
-		gotUser = user
+		got = principal
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := auth.RequireAuth(&fakeVerifier{claims: &auth.Claims{Sub: "auth0|new", Email: "new@example.com"}}, db)(next)
+	handler := auth.RequireAuth(&fakeVerifier{principal: want})(next)
 
 	req := httptest.NewRequest(http.MethodGet, "/me", nil)
 	req.Header.Set("Authorization", "Bearer validtoken")
@@ -74,45 +73,7 @@ func TestRequireAuth_NewSub_CreatesUser(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
-	if gotUser == nil || gotUser.Sub != "auth0|new" {
-		t.Fatalf("expected user with sub auth0|new, got %+v", gotUser)
-	}
-
-	var count int64
-	db.Model(&models.User{}).Where("sub = ?", "auth0|new").Count(&count)
-	if count != 1 {
-		t.Fatalf("expected exactly 1 user row, got %d", count)
-	}
-}
-
-func TestRequireAuth_ExistingSub_ReusesUser(t *testing.T) {
-	db := testdb.New(t, &models.User{})
-	existing := models.User{Sub: "auth0|existing", Email: "existing@example.com"}
-	if err := db.Create(&existing).Error; err != nil {
-		t.Fatalf("failed to seed user: %v", err)
-	}
-
-	var gotUser *models.User
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, _ := auth.UserFromContext(r.Context())
-		gotUser = user
-		w.WriteHeader(http.StatusOK)
-	})
-
-	handler := auth.RequireAuth(&fakeVerifier{claims: &auth.Claims{Sub: "auth0|existing"}}, db)(next)
-
-	req := httptest.NewRequest(http.MethodGet, "/me", nil)
-	req.Header.Set("Authorization", "Bearer validtoken")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	if gotUser == nil || gotUser.ID != existing.ID {
-		t.Fatalf("expected to reuse existing user %s, got %+v", existing.ID, gotUser)
-	}
-
-	var count int64
-	db.Model(&models.User{}).Where("sub = ?", "auth0|existing").Count(&count)
-	if count != 1 {
-		t.Fatalf("expected exactly 1 user row, got %d", count)
+	if got == nil || *got != *want {
+		t.Fatalf("expected principal %+v in context, got %+v", want, got)
 	}
 }

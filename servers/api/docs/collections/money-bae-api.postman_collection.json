@@ -1,0 +1,151 @@
+{
+	"info": {
+		"name": "money-bae API",
+		"description": "Requests against the Go API in servers/api. Update this collection as routes are added.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080"
+		},
+		{
+			"key": "token",
+			"value": "mock-token",
+			"description": "Ignored for now — MockVerifier is wired in and always authenticates as the seed user regardless of this value. Swap for a real bearer token once an IdP is configured."
+		},
+		{
+			"key": "incomeId",
+			"value": "",
+			"description": "Auto-populated by Income > Create's test script; used by Get/Update/Delete."
+		}
+	],
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/health",
+					"host": ["{{baseUrl}}"],
+					"path": ["health"]
+				}
+			}
+		},
+		{
+			"name": "Me",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/me",
+					"host": ["{{baseUrl}}"],
+					"path": ["me"]
+				}
+			}
+		},
+		{
+			"name": "Income",
+			"item": [
+				{
+					"name": "Create",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    pm.collectionVariables.set('incomeId', pm.response.json().id);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"date\": \"2026-01-15T00:00:00Z\",\n  \"amount\": { \"amount\": 150000, \"currency\": \"USD\" },\n  \"ledgerId\": null,\n  \"notes\": \"created from Postman\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/incomes",
+							"host": ["{{baseUrl}}"],
+							"path": ["incomes"]
+						}
+					}
+				},
+				{
+					"name": "List",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/incomes",
+							"host": ["{{baseUrl}}"],
+							"path": ["incomes"]
+						}
+					}
+				},
+				{
+					"name": "Get",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/incomes/{{incomeId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["incomes", "{{incomeId}}"]
+						}
+					}
+				},
+				{
+					"name": "Update",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"date\": \"2026-02-01T00:00:00Z\",\n  \"amount\": { \"amount\": 99900, \"currency\": \"USD\" },\n  \"ledgerId\": null,\n  \"notes\": \"updated from Postman\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/incomes/{{incomeId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["incomes", "{{incomeId}}"]
+						}
+					}
+				},
+				{
+					"name": "Delete",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/incomes/{{incomeId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["incomes", "{{incomeId}}"]
+						}
+					}
+				}
+			]
+		}
+	]
+}

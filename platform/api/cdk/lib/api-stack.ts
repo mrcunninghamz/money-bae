@@ -8,10 +8,14 @@ export class ApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const repo = new ecr.Repository(this, 'ApiRepo', { repositoryName: 'money-bae-api' });
+    // Imported by name, not created here - see EcrStack. App Runner requires
+    // an image to already exist at 'latest' when the service is created, so
+    // the repo has to be its own long-lived stack, deployed (and pushed to)
+    // ahead of this one.
+    const repo = ecr.Repository.fromRepositoryName(this, 'ApiRepo', 'money-bae-api');
     const dbSecret = secretsmanager.Secret.fromSecretNameV2(this, 'DbSecret', 'money-bae-api/database-url');
 
-    new apprunner.Service(this, 'ApiService', {
+    const service = new apprunner.Service(this, 'ApiService', {
       source: apprunner.Source.fromEcr({
         repository: repo,
         tagOrDigest: 'latest',
@@ -22,5 +26,7 @@ export class ApiStack extends cdk.Stack {
       }),
       healthCheck: apprunner.HealthCheck.http({ path: '/health' }),
     });
+
+    new cdk.CfnOutput(this, 'ServiceUrl', { value: service.serviceUrl });
   }
 }

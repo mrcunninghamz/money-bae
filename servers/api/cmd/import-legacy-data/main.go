@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/mrcunninghamz/money-bae/servers/api/internal/auth"
 	"github.com/mrcunninghamz/money-bae/servers/api/internal/config"
 	"github.com/mrcunninghamz/money-bae/servers/api/internal/database"
 	"github.com/mrcunninghamz/money-bae/servers/api/internal/migrations"
@@ -17,11 +18,12 @@ import (
 
 // See issue #47 for the full design. This tool is read-only against the
 // legacy database and only ever writes to the target (money_bae_api).
-const (
-	seedUserIDString = "01a0682f-2135-7c0a-bd1f-4d1be1918f2b"
-	seedUserEmail    = "kmerecido@gmail.com"
-	seedUserSub      = "migration-seed:kmerecido@gmail.com"
-)
+//
+// seedUserSub/seedUserEmail come from internal/auth (auth.SeedUserSub/
+// auth.SeedUserEmail) rather than being redefined here, since MockVerifier
+// must authenticate as exactly this row — a drift between two hardcoded
+// copies would silently provision a second, empty user.
+const seedUserIDString = "01a0682f-2135-7c0a-bd1f-4d1be1918f2b"
 
 func main() {
 	cfg := config.Load() // also loads .env via godotenv, so SOURCE_DATABASE_URL below picks up the same file
@@ -106,8 +108,8 @@ func seedUser(target *gorm.DB) (uuid.UUID, error) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		user = models.User{
 			Base:  models.Base{ID: userID},
-			Sub:   seedUserSub,
-			Email: seedUserEmail,
+			Sub:   auth.SeedUserSub,
+			Email: auth.SeedUserEmail,
 		}
 		if err := target.Create(&user).Error; err != nil {
 			return uuid.Nil, fmt.Errorf("creating seed user: %w", err)
