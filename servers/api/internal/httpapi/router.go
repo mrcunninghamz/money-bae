@@ -19,5 +19,7 @@ func NewRouter(db *gorm.DB, verifier auth.Verifier) http.Handler {
 	mux.Handle("GET /incomes/{id}", requireAuth(getIncomeHandler(db)))
 	mux.Handle("PUT /incomes/{id}", requireAuth(updateIncomeHandler(db)))
 	mux.Handle("DELETE /incomes/{id}", requireAuth(deleteIncomeHandler(db)))
+	mux.Handle("GET /ledgers/current", requireAuth(currentLedgerHandler(db)))
+	mux.Handle("GET /ledgers/history", requireAuth(ledgerHistoryHandler(db)))
 	return loggingMiddleware(mux)
 }
