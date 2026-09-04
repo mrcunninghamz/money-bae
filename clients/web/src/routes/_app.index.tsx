@@ -62,7 +62,9 @@ function historyToSparkPoints(history: LedgerHistoryEntry[]): SparkPoint[] {
 function HomePage() {
   const store = useAppStore()
   const navigate = useNavigate()
-  const firstPto = store.ptos.at(0)
+  const currentYearPto = store.ptos.find(
+    (p) => p.year === new Date().getFullYear(),
+  )
   const [currentLedger, setCurrentLedger] = useState<CurrentLedger | null>(null)
   const [history, setHistory] = useState<LedgerHistoryEntry[]>([])
 
@@ -220,18 +222,18 @@ function HomePage() {
               <button
                 className="btn btn-ghost mono"
                 style={{ fontSize: 12, color: '#9184d9' }}
-                disabled={!firstPto}
                 onClick={() =>
-                  firstPto &&
-                  navigate({
-                    to: '/pto/$year',
-                    params: { year: String(firstPto.year) },
-                  })
+                  currentYearPto
+                    ? navigate({
+                        to: '/pto/$year',
+                        params: { year: String(currentYearPto.year) },
+                      })
+                    : navigate({ to: '/pto' })
                 }
               >
-                PTO{' '}
-                {firstPto &&
-                  `${Math.round(Number(firstPto.hoursRemaining))}h left`}
+                {currentYearPto
+                  ? `PTO ${Math.round(Number(currentYearPto.hoursRemaining))}h left`
+                  : 'Setup PTO'}
               </button>
             </div>
           </div>
