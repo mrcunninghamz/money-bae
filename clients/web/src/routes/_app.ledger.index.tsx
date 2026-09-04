@@ -68,7 +68,7 @@ function LedgerListPage() {
                 <th style={{ paddingLeft: 16, width: 36 }} />
                 <th>Date</th>
                 <th>Name</th>
-                <th style={{ textAlign: 'right' }}>Bank balance</th>
+                <th style={{ textAlign: 'right' }}>Balance</th>
                 <th style={{ textAlign: 'right' }}>Expenses</th>
                 <th style={{ textAlign: 'right', paddingRight: 16 }}>Net</th>
               </tr>
@@ -104,7 +104,10 @@ function LedgerListPage() {
                   </td>
                   <td>{row.name ?? '—'}</td>
                   <td className="mono" style={{ textAlign: 'right' }}>
-                    {formatCurrency(moneyToNumber(row.bankBalance))}
+                    {formatCurrency(
+                      moneyToNumber(row.bankBalance) +
+                        moneyToNumber(row.income),
+                    )}
                   </td>
                   <td
                     className="mono"
