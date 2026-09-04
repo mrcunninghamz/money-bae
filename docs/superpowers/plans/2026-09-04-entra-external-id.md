@@ -16,6 +16,7 @@
 - Provider pins (exact, matching `platform/db`'s pinning style): `azurerm = "=4.1.0"`, `azapi = "=2.12.0"` (tenant/ only), `azuread = "=3.9.0"` and `random = "=3.9.0"` (app-registrations/ only).
 - Azure subscription for the tenant/ resource group: `c6f1212c-ec19-425f-96a0-41f2db717ea8` (hardcoded in `provider "azurerm"`, same as `platform/db/infrastructure/providers.tf`).
 - Shared remote state backend: storage account `stmbtfstateshared`, resource group `rg-moneybae-tfstate-shared`, container `tfstate` — new keys `identity/tenant.tfstate` and `identity/app-registrations.tfstate`.
+- Both root configs (`tenant/`, `app-registrations/`) initialize against this **real** backend — `terraform init` with the actual `-backend-config` flags (matching `platform/db`'s README exactly, including `-backend-config="subscription_id=c6f1212c-ec19-425f-96a0-41f2db717ea8"`), not `-backend=false`. The `subscription_id` in the backend config targets the right subscription regardless of which subscription `az account show` currently reports as default — this is how `platform/db` already handles it. `terraform init` (even against a real backend) only creates/reads Terraform's own state-tracking metadata; it never creates, modifies, or destroys an Azure/Entra resource, so it's as safe to automate as `validate`/`plan`/`fmt`. Only `apply`/`destroy` need the human-review gate below. Modules (`api-registration`, `spa-registration`, and anything under `tenant/modules/` if added later) never get a backend block — Terraform hard-errors on that for non-root modules — so their standalone validation still uses `-backend=false`, which is unrelated to this real-backend requirement.
 - No `infrastructure/` wrapper subfolder — `platform/entra-external-id/tenant/` and `platform/entra-external-id/app-registrations/` sit directly under `platform/entra-external-id/`, matching `platform/api/` and `platform/web-client/` (only `platform/db/` uses the wrapper).
 - Region: `centralus` / `cus` for the resource group, matching `platform/db`.
 - **Never run `terraform apply` or `terraform destroy` without a human reviewing the `terraform plan` output first** — this is real, live Azure/Entra infrastructure. No task in this plan runs `apply`; every task stops at `terraform validate`/`plan`-safe commands, and the real `init`/`plan`/`apply` sequence is documented as a manual runbook for the human to execute themselves (Task 4).
@@ -186,19 +187,26 @@ tags = {
 }
 ```
 
-- [ ] **Step 6: Format and validate (no real Azure calls)**
+- [ ] **Step 6: Format, initialize against the real backend, and validate**
 
 Run from `platform/entra-external-id/tenant/`:
 
 ```bash
 terraform fmt -check
-terraform init -backend=false
+terraform init \
+  -backend-config="resource_group_name=rg-moneybae-tfstate-shared" \
+  -backend-config="storage_account_name=stmbtfstateshared" \
+  -backend-config="container_name=tfstate" \
+  -backend-config="key=identity/tenant.tfstate" \
+  -backend-config="subscription_id=c6f1212c-ec19-425f-96a0-41f2db717ea8"
 terraform validate
 ```
 
-Expected: `fmt -check` prints nothing (already formatted); `init` succeeds downloading `azurerm`/`azapi` provider plugins; `validate` prints `Success! The configuration is valid.`
+This matches `platform/db`'s own `terraform init` command exactly (same storage account/resource group/container, different `key`) — real backend, not `-backend=false`. It requires `az login` with an identity that has access to that storage account; the `subscription_id` backend-config value targets the right subscription regardless of whichever subscription `az account show` currently reports as the CLI's default. `terraform init` only sets up Terraform's own state-tracking metadata in that storage account (creating the `identity/tenant.tfstate` blob entry if it doesn't exist yet) — it does not create, modify, or read any Azure/Entra resource, so it carries the same safety profile as `validate`/`plan`/`fmt`.
 
-If `fmt -check` reports a diff, run `terraform fmt` (no `-check`) to fix it, then re-run `-check` to confirm.
+Expected: `fmt -check` prints nothing (already formatted); `init` succeeds (downloads `azurerm`/`azapi` provider plugins and reports successfully configured backend); `validate` prints `Success! The configuration is valid.`
+
+If `fmt -check` reports a diff, run `terraform fmt` (no `-check`) to fix it, then re-run `-check` to confirm. If `init` fails with an authorization error against the storage account, STOP and report BLOCKED — that's a real access problem for the controller to resolve, not something to work around.
 
 - [ ] **Step 7: Commit**
 
@@ -532,17 +540,24 @@ local_redirect_uri = "http://localhost:3000"
 # real CloudFront domain is known (see Task 4's runbook).
 ```
 
-- [ ] **Step 6: Format and validate**
+- [ ] **Step 6: Format, initialize against the real backend, and validate**
 
 Run from `platform/entra-external-id/app-registrations/`:
 
 ```bash
 terraform fmt -check -recursive
-terraform init -backend=false
+terraform init \
+  -backend-config="resource_group_name=rg-moneybae-tfstate-shared" \
+  -backend-config="storage_account_name=stmbtfstateshared" \
+  -backend-config="container_name=tfstate" \
+  -backend-config="key=identity/app-registrations.tfstate" \
+  -backend-config="subscription_id=c6f1212c-ec19-425f-96a0-41f2db717ea8"
 terraform validate
 ```
 
-Expected: `fmt -check -recursive` clean across root + module; `init` resolves the local module source and downloads providers; `validate` prints `Success! The configuration is valid.` (validate succeeds even though `ciam_tenant_id` has no default — Terraform only checks config validity, not that every variable has a value.)
+Real backend, not `-backend=false` — same shared storage account as `tenant/` and `platform/db`, different `key`. See Task 1 Step 6 for why this is safe to run unsupervised (it only touches Terraform's own state-tracking metadata, never an Azure/Entra resource) and what to do if it fails on authorization.
+
+Expected: `fmt -check -recursive` clean across root + both modules; `init` resolves the local module sources, downloads providers, and reports a successfully configured backend; `validate` prints `Success! The configuration is valid.` (validate succeeds even though `ciam_tenant_id` has no default — Terraform only checks config validity, not that every variable has a value.)
 
 - [ ] **Step 7: Commit**
 
