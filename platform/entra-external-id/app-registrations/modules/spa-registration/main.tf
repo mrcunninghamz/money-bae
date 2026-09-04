@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "=3.9.0"
+    }
+  }
+}
+
 resource "azuread_application" "spa" {
   display_name     = var.display_name
   sign_in_audience = "AzureADMyOrg"

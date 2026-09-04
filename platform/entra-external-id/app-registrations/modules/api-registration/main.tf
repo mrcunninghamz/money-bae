@@ -1,3 +1,16 @@
+terraform {
+  required_providers {
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "=3.9.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "=3.9.0"
+    }
+  }
+}
+
 resource "random_uuid" "access_as_user" {}
 
 resource "azuread_application" "api" {
@@ -6,6 +19,10 @@ resource "azuread_application" "api" {
   identifier_uris  = ["api://${var.display_name}"]
 
   api {
+    # Also keeps identifier_uris legal: api://<string> is normally only
+    # allowed when <string> is a GUID or verified domain, but apps with
+    # requestedAccessTokenVersion = 2 are exempt from that restriction by
+    # default. Removing this would break `terraform apply` non-obviously.
     requested_access_token_version = 2
 
     oauth2_permission_scope {

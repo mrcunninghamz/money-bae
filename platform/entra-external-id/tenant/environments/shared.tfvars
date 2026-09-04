@@ -8,7 +8,7 @@ ciam_display_name  = "KKBAE"
 
 tags = {
   Environment = "shared"
-  Application = "MoneyBae"
+  Application = "KKBAE"
   Component   = "Identity"
   ManagedBy   = "Terraform"
 }

@@ -1,7 +1,8 @@
 locals {
   # oauth.pstmn.io is Postman's OAuth2 callback proxy, added to every SPA
-  # app's redirect URIs so the Postman collection (Task 5) can obtain real
-  # tokens for manual API testing without a second app registration.
+  # app's redirect URIs so the Postman collection (see ../CLAUDE.md) can
+  # obtain real tokens for manual API testing without a second app
+  # registration.
   postman_callback_redirect_uri = "https://oauth.pstmn.io/v1/callback"
 }
 
