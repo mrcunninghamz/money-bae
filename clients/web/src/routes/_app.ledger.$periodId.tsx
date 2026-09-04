@@ -5,7 +5,7 @@ import { PageHeader } from '#/components/PageHeader'
 import { SelectCheckbox } from '#/components/SelectCheckbox'
 import type { LedgerDetail } from '#/data/api'
 import { getLedger, moneyToNumber, updateLedgerBill } from '#/data/api'
-import { formatCurrency } from '#/data/format'
+import { formatCurrency, formatDateMMDDYYYY } from '#/data/format'
 import { useAppStore } from '#/data/store'
 import { useMultiSelect } from '#/hooks/useMultiSelect'
 
@@ -130,7 +130,7 @@ function LedgerItemPage() {
     <>
       <PageHeader
         kicker="ledger item"
-        title={`${detail.name ?? 'Ledger cycle'} · ${detail.date}`}
+        title={`${detail.name ?? 'Ledger cycle'} · ${formatDateMMDDYYYY(detail.date)}`}
       />
       <div
         className="grid min-w-0 flex-1 items-start gap-[18px]"
@@ -271,7 +271,7 @@ function LedgerItemPage() {
                         onToggle={() => incomeSelection.toggle(income.id)}
                       />
                     </td>
-                    <td className="mono">{income.date}</td>
+                    <td className="mono">{formatDateMMDDYYYY(income.date)}</td>
                     <td
                       className="mono"
                       style={{ textAlign: 'right', paddingRight: 16 }}

@@ -3,7 +3,7 @@ import { EntityActionBar } from '#/components/EntityActionBar'
 import { PageHeader } from '#/components/PageHeader'
 import { SelectCheckbox } from '#/components/SelectCheckbox'
 import { moneyToNumber } from '#/data/api'
-import { formatCurrency } from '#/data/format'
+import { formatCurrency, formatDateMMDDYYYY } from '#/data/format'
 import { useAppStore } from '#/data/store'
 import { useMultiSelect } from '#/hooks/useMultiSelect'
 
@@ -95,7 +95,7 @@ function LedgerListPage() {
                     className="mono"
                     style={{ color: 'rgba(233,233,237,.6)' }}
                   >
-                    {row.date}
+                    {formatDateMMDDYYYY(row.date)}
                   </td>
                   <td>{row.name ?? '—'}</td>
                   <td className="mono" style={{ textAlign: 'right' }}>

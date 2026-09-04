@@ -5,7 +5,7 @@ import { PageHeader } from '#/components/PageHeader'
 import { SelectCheckbox } from '#/components/SelectCheckbox'
 import type { PtoDetail } from '#/data/api'
 import { getPto } from '#/data/api'
-import { formatHours } from '#/data/format'
+import { formatDateMMDDYYYY, formatHours } from '#/data/format'
 import { useAppStore } from '#/data/store'
 import { useMultiSelect } from '#/hooks/useMultiSelect'
 
@@ -209,12 +209,14 @@ function PtoYearPage() {
                       onToggle={() => ptoSelection.toggle(entry.id)}
                     />
                   </td>
-                  <td className="mono">{entry.startDate}</td>
+                  <td className="mono">
+                    {formatDateMMDDYYYY(entry.startDate)}
+                  </td>
                   <td
                     className="mono"
                     style={{ color: 'rgba(233,233,237,.6)' }}
                   >
-                    {entry.endDate}
+                    {formatDateMMDDYYYY(entry.endDate)}
                   </td>
                   <td>{entry.name}</td>
                   <td
@@ -332,7 +334,7 @@ function PtoYearPage() {
                       className="mono"
                       style={{ color: 'rgba(233,233,237,.6)' }}
                     >
-                      {holiday.date}
+                      {formatDateMMDDYYYY(holiday.date)}
                     </td>
                     <td>{holiday.name}</td>
                     <td
