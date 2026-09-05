@@ -172,7 +172,8 @@ function LedgerItemPage() {
     (sum, lb) => sum + moneyToNumber(lb.amount),
     0,
   )
-  const netTotal = moneyToNumber(detail.bankBalance) + incomeTotal - expensesTotal
+  const netTotal =
+    moneyToNumber(detail.bankBalance) + incomeTotal - expensesTotal
 
   return (
     <>
@@ -181,28 +182,27 @@ function LedgerItemPage() {
         title={`${detail.name ?? 'Ledger cycle'} · ${formatDateMMDDYYYY(detail.date)}`}
       />
       <div
-        className="grid min-w-0 flex-1 items-start gap-[18px]"
-        style={{ padding: '20px 24px 8px', gridTemplateColumns: '1.5fr 1fr' }}
+        className="grid min-w-0 flex-1 grid-cols-1 content-start items-start gap-[18px] lg:grid-cols-[1.5fr_1fr]"
+        style={{ padding: '20px 24px 8px' }}
       >
         <div
           className="card elev-sm overflow-hidden"
           style={{ background: '#1b1d2e', padding: 0, gap: 0 }}
         >
           <div
-            className="flex items-center gap-[8px]"
+            className="flex flex-col items-start gap-[8px] sm:flex-row sm:items-center"
             style={{ padding: '13px 16px' }}
           >
-            <span className="card-kicker mono">bills in this cycle</span>
+            <span className="card-kicker mono">bills</span>
             <span
               className="mono"
               style={{ fontSize: 11, color: 'rgba(233,233,237,.4)' }}
             >
               click a row to toggle paid
             </span>
-            <div className="flex gap-[8px] ml-auto">
+            <div className="flex flex-wrap gap-[8px] sm:ml-auto">
               <EntityActionBar
                 selectedCount={billSelection.count}
-                addLabel="+ Add bill"
                 onAdd={() => store.openLedgerBillModal('Add')}
                 onEdit={handleEditBill}
                 onDelete={handleDeleteBills}
@@ -215,7 +215,7 @@ function LedgerItemPage() {
                 <th style={{ paddingLeft: 16, width: 36 }} />
                 <th>Bill</th>
                 <th style={{ textAlign: 'right' }}>Amount</th>
-                <th>Due</th>
+                <th className="hidden sm:table-cell">Due</th>
                 <th style={{ textAlign: 'right', paddingRight: 16 }}>Paid</th>
               </tr>
             </thead>
@@ -242,7 +242,7 @@ function LedgerItemPage() {
                     {formatCurrency(moneyToNumber(lb.amount))}
                   </td>
                   <td
-                    className="mono"
+                    className="mono hidden sm:table-cell"
                     style={{ color: 'rgba(233,233,237,.55)' }}
                   >
                     {lb.dueDay ?? '—'}
@@ -278,24 +278,24 @@ function LedgerItemPage() {
             style={{ background: '#1b1d2e', padding: 0, gap: 0 }}
           >
             <div
-              className="flex items-center gap-[8px]"
+              className="flex flex-col items-start gap-[8px] sm:flex-row sm:items-center"
               style={{ padding: '13px 16px' }}
             >
               <span className="card-kicker mono">incomes</span>
-              <div className="flex gap-[8px] ml-auto">
+              <div className="flex flex-wrap gap-[8px] sm:ml-auto">
                 <button
                   className="btn btn-primary mono"
                   style={{ fontSize: 12.5 }}
                   onClick={() => store.openIncomeModal('Add')}
                 >
-                  + Add income
+                  + Add
                 </button>
                 <button
                   className="btn btn-secondary mono"
                   style={{ fontSize: 12.5 }}
                   onClick={() => setImportOpen(true)}
                 >
-                  + Import income
+                  + Import
                 </button>
                 <button
                   className="btn btn-secondary mono"

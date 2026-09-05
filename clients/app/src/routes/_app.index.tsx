@@ -118,10 +118,7 @@ function HomePage() {
         className="flex min-w-0 flex-1 flex-col gap-[18px]"
         style={{ padding: '20px 24px 8px' }}
       >
-        <div
-          className="grid gap-[18px]"
-          style={{ gridTemplateColumns: '1.35fr 1fr' }}
-        >
+        <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-[1.35fr_1fr]">
           <div
             className="card elev-sm"
             style={{ background: '#1b1d2e', padding: '18px 20px', gap: 14 }}
@@ -245,12 +242,9 @@ function HomePage() {
           </div>
         </div>
 
-        <div
-          className="grid gap-[18px]"
-          style={{ gridTemplateColumns: '1fr 1fr 1fr' }}
-        >
+        <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-3">
           <div
-            className="card elev-sm"
+            className="card elev-sm min-h-[200px] lg:min-h-0"
             style={{ background: '#1b1d2e', padding: '16px 18px', gap: 10 }}
           >
             <span className="card-kicker mono">net by cycle</span>

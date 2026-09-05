@@ -159,19 +159,19 @@ function PtoYearPage() {
     <>
       <PageHeader kicker="pto record" title={`PTO — ${year}`} />
       <div
-        className="grid min-w-0 flex-1 items-start gap-[18px]"
-        style={{ padding: '20px 24px 8px', gridTemplateColumns: '1.5fr 1fr' }}
+        className="grid min-w-0 flex-1 grid-cols-1 content-start items-start gap-[18px] lg:grid-cols-[1.5fr_1fr]"
+        style={{ padding: '20px 24px 8px' }}
       >
         <div
           className="card elev-sm overflow-hidden"
           style={{ background: '#1b1d2e', padding: 0, gap: 0 }}
         >
           <div
-            className="flex items-center gap-[8px]"
+            className="flex flex-col items-start gap-[8px] sm:flex-row sm:items-center"
             style={{ padding: '13px 16px' }}
           >
             <span className="card-kicker mono">planned pto — {year}</span>
-            <div className="flex gap-[8px] ml-auto">
+            <div className="flex flex-wrap gap-[8px] sm:ml-auto">
               <EntityActionBar
                 selectedCount={ptoSelection.count}
                 onAdd={() => store.openPtoPlanModal('Add')}
@@ -186,7 +186,7 @@ function PtoYearPage() {
               <tr>
                 <th style={{ paddingLeft: 16, width: 36 }} />
                 <th>Start</th>
-                <th>End</th>
+                <th className="hidden sm:table-cell">End</th>
                 <th>Name</th>
                 <th style={{ textAlign: 'right' }}>Hours</th>
                 <th style={{ paddingRight: 16 }}>Status</th>
@@ -217,7 +217,7 @@ function PtoYearPage() {
                     {formatDateMMDDYYYY(entry.startDate)}
                   </td>
                   <td
-                    className="mono"
+                    className="mono hidden sm:table-cell"
                     style={{ color: 'rgba(233,233,237,.6)' }}
                   >
                     {formatDateMMDDYYYY(entry.endDate)}
@@ -298,11 +298,11 @@ function PtoYearPage() {
             style={{ background: '#1b1d2e', padding: 0, gap: 0 }}
           >
             <div
-              className="flex items-center gap-[8px]"
+              className="flex flex-col items-start gap-[8px] sm:flex-row sm:items-center"
               style={{ padding: '13px 16px' }}
             >
               <span className="card-kicker mono">holiday hours</span>
-              <div className="flex items-center gap-[8px] ml-auto">
+              <div className="flex flex-wrap items-center gap-[8px] sm:ml-auto">
                 <EntityActionBar
                   selectedCount={holidaySelection.count}
                   onAdd={() => store.openHolidayModal('Add')}

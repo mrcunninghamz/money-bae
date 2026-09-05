@@ -26,3 +26,16 @@ export function parseDateMMDDYYYY(value: string): string {
   const [mm, dd, yyyy] = value.split('/').map(Number)
   return new Date(Date.UTC(yyyy, mm - 1, dd)).toISOString()
 }
+
+// YYYY-MM-DD, the value format native <input type="date"> requires.
+export function formatDateInputValue(iso: string): string {
+  const d = new Date(iso)
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  return `${d.getUTCFullYear()}-${mm}-${dd}`
+}
+
+export function parseDateInputValue(value: string): string {
+  const [yyyy, mm, dd] = value.split('-').map(Number)
+  return new Date(Date.UTC(yyyy, mm - 1, dd)).toISOString()
+}

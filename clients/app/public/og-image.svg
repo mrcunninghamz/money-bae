@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <rect x="0" y="0" width="1200" height="630" fill="#161826" />
+
+  <g transform="translate(390 70) scale(3.5)">
+    <rect
+      x="26"
+      y="52"
+      width="76"
+      height="28"
+      rx="8"
+      fill="#2b2741"
+      stroke="#5d5294"
+      stroke-width="2.5"
+      transform="rotate(4 64 66)"
+    />
+    <path
+      d="M32 34 L30 12 L48 28 Z"
+      fill="#423a6a"
+      stroke="#b5abfc"
+      stroke-width="2.5"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M84 34 L86 12 L68 28 Z"
+      fill="#423a6a"
+      stroke="#b5abfc"
+      stroke-width="2.5"
+      stroke-linejoin="round"
+    />
+    <rect
+      x="22"
+      y="28"
+      width="72"
+      height="44"
+      rx="12"
+      fill="#161826"
+      stroke="#b5abfc"
+      stroke-width="2.5"
+    />
+    <g stroke="#796cbf" stroke-width="2" stroke-linecap="round">
+      <path d="M20 44 L4 38" />
+      <path d="M20 51 L3 51" />
+      <path d="M20 58 L5 64" />
+      <path d="M96 44 L112 38" />
+      <path d="M96 51 L113 51" />
+      <path d="M96 58 L111 64" />
+    </g>
+    <g fill="#e9e9ed">
+      <ellipse cx="43" cy="47" rx="5" ry="5.6" />
+      <ellipse cx="73" cy="47" rx="5" ry="5.6" />
+    </g>
+    <g fill="#161826">
+      <circle cx="44.6" cy="45" r="1.7" />
+      <circle cx="74.6" cy="45" r="1.7" />
+    </g>
+    <g fill="#9184d9" opacity=".5">
+      <ellipse cx="33" cy="57" rx="5" ry="2.6" />
+      <ellipse cx="83" cy="57" rx="5" ry="2.6" />
+    </g>
+    <path
+      d="M54 55 q4 4 6 0 q2 4 6 0"
+      fill="none"
+      stroke="#e9e9ed"
+      stroke-width="2.2"
+      stroke-linecap="round"
+    />
+    <text
+      x="58"
+      y="68"
+      text-anchor="middle"
+      font-family="ui-monospace, Menlo, monospace"
+      font-size="10"
+      fill="#796cbf"
+    >
+      $ $
+    </text>
+  </g>
+
+  <text
+    x="600"
+    y="500"
+    text-anchor="middle"
+    font-family="ui-monospace, Menlo, monospace"
+    font-size="64"
+    fill="#e9e9ed"
+  >
+    money<tspan fill="#9184d9">&#183;</tspan>bae
+  </text>
+  <text
+    x="600"
+    y="550"
+    text-anchor="middle"
+    font-family="system-ui, sans-serif"
+    font-size="28"
+    fill="rgba(233,233,237,.7)"
+  >
+    This is not a budgeting app.
+  </text>
+</svg>

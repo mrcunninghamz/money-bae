@@ -443,6 +443,18 @@ textarea.input {
       )
       no-repeat bottom / 100% 1px;
 }
+@media (max-width: 640px) {
+  .table {
+    font-size: 12px;
+  }
+  .table th {
+    font-size: 10px;
+    padding: var(--space-1);
+  }
+  .table td {
+    padding: var(--space-1);
+  }
+}
 
 /* — dialog — */
 .dialog-backdrop {

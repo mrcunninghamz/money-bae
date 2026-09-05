@@ -67,9 +67,19 @@ function LedgerListPage() {
               <tr>
                 <th style={{ paddingLeft: 16, width: 36 }} />
                 <th>Date</th>
-                <th>Name</th>
-                <th style={{ textAlign: 'right' }}>Balance</th>
-                <th style={{ textAlign: 'right' }}>Expenses</th>
+                <th className="hidden sm:table-cell">Name</th>
+                <th
+                  className="hidden sm:table-cell"
+                  style={{ textAlign: 'right' }}
+                >
+                  Balance
+                </th>
+                <th
+                  className="hidden sm:table-cell"
+                  style={{ textAlign: 'right' }}
+                >
+                  Expenses
+                </th>
                 <th style={{ textAlign: 'right', paddingRight: 16 }}>Net</th>
               </tr>
             </thead>
@@ -102,15 +112,18 @@ function LedgerListPage() {
                   >
                     {formatDateMMDDYYYY(row.date)}
                   </td>
-                  <td>{row.name ?? '—'}</td>
-                  <td className="mono" style={{ textAlign: 'right' }}>
+                  <td className="hidden sm:table-cell">{row.name ?? '—'}</td>
+                  <td
+                    className="mono hidden sm:table-cell"
+                    style={{ textAlign: 'right' }}
+                  >
                     {formatCurrency(
                       moneyToNumber(row.bankBalance) +
                         moneyToNumber(row.income),
                     )}
                   </td>
                   <td
-                    className="mono"
+                    className="mono hidden sm:table-cell"
                     style={{
                       textAlign: 'right',
                       color: 'rgba(233,233,237,.7)',

@@ -1,11 +1,7 @@
 import { useState } from 'react'
-import { BillStack } from '#/components/BillStack'
-import { CoinBadge } from '#/components/CoinBadge'
-import { FullKawaii } from '#/components/FullKawaii'
+import { MASCOT_ICONS } from '#/components/mascotIcons'
 import type { ToastKind, ToastMessage } from '#/data/store'
 import { useAppStore } from '#/data/store'
-
-const ICONS = [FullKawaii, CoinBadge, BillStack]
 
 const KIND_STYLE: Record<ToastKind, { background: string; border: string }> = {
   error: { background: '#3a1a1e', border: '#c85a5a' },
@@ -15,7 +11,9 @@ const KIND_STYLE: Record<ToastKind, { background: string; border: string }> = {
 
 function ToastOverlay({ id, kind, text }: ToastMessage) {
   const store = useAppStore()
-  const [Icon] = useState(() => ICONS[Math.floor(Math.random() * ICONS.length)])
+  const [Icon] = useState(
+    () => MASCOT_ICONS[Math.floor(Math.random() * MASCOT_ICONS.length)],
+  )
   const style = KIND_STYLE[kind]
 
   return (

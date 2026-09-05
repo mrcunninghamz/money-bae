@@ -12,7 +12,11 @@ import type {
   PtoPlanStatus,
 } from '#/data/api'
 import { moneyToNumber, numberToMoney } from '#/data/api'
-import { formatDateMMDDYYYY, parseDateMMDDYYYY } from '#/data/format'
+import {
+  formatDateInputValue,
+  formatDateMMDDYYYY,
+  parseDateInputValue,
+} from '#/data/format'
 import { useAppStore } from '#/data/store'
 
 const MODAL_NOUN = {
@@ -83,12 +87,12 @@ export function EditModal() {
     setIncomeForm(
       existing
         ? {
-            date: formatDateMMDDYYYY(existing.date),
+            date: formatDateInputValue(existing.date),
             amount: moneyToNumber(existing.amount).toFixed(2),
             notes: existing.notes ?? '',
           }
         : {
-            date: formatDateMMDDYYYY(new Date().toISOString()),
+            date: formatDateInputValue(new Date().toISOString()),
             amount: '',
             notes: '',
           },
@@ -123,7 +127,7 @@ export function EditModal() {
     setLedgerForm(
       existing
         ? {
-            date: formatDateMMDDYYYY(existing.date),
+            date: formatDateInputValue(existing.date),
             name: existing.name ?? '',
             bankBalance: moneyToNumber(existing.bankBalance).toFixed(2),
             notes: existing.notes ?? '',
@@ -178,8 +182,8 @@ export function EditModal() {
     setPtoPlanForm(
       existing
         ? {
-            startDate: formatDateMMDDYYYY(existing.startDate),
-            endDate: formatDateMMDDYYYY(existing.endDate),
+            startDate: formatDateInputValue(existing.startDate),
+            endDate: formatDateInputValue(existing.endDate),
             name: existing.name,
             description: existing.description ?? '',
             hours: existing.hours,
@@ -202,7 +206,7 @@ export function EditModal() {
     setHolidayForm(
       existing
         ? {
-            date: formatDateMMDDYYYY(existing.date),
+            date: formatDateInputValue(existing.date),
             name: existing.name,
             hours: existing.hours,
           }
@@ -229,7 +233,7 @@ export function EditModal() {
           ? store.income.find((i) => i.id === store.incomeSelected)
           : undefined
       const input: IncomeInput = {
-        date: parseDateMMDDYYYY(incomeForm.date),
+        date: parseDateInputValue(incomeForm.date),
         amount: numberToMoney(Number(incomeForm.amount) || 0),
         ledgerId:
           store.modalMode === 'Add'
@@ -265,7 +269,7 @@ export function EditModal() {
           ? store.ledgers.find((l) => l.id === store.ledgerSelected)
           : undefined
       const input: LedgerInput = {
-        date: parseDateMMDDYYYY(ledgerForm.date),
+        date: parseDateInputValue(ledgerForm.date),
         name: ledgerForm.name || null,
         bankBalance: numberToMoney(Number(ledgerForm.bankBalance) || 0),
         income: existingLedger?.income,
@@ -307,8 +311,8 @@ export function EditModal() {
       if (!ok) return
     } else if (store.modal === 'pto') {
       const input: PtoPlanInput = {
-        startDate: parseDateMMDDYYYY(ptoPlanForm.startDate),
-        endDate: parseDateMMDDYYYY(ptoPlanForm.endDate),
+        startDate: parseDateInputValue(ptoPlanForm.startDate),
+        endDate: parseDateInputValue(ptoPlanForm.endDate),
         name: ptoPlanForm.name,
         description: ptoPlanForm.description || null,
         hours: ptoPlanForm.hours || '0',
@@ -322,7 +326,7 @@ export function EditModal() {
       if (!ok) return
     } else if (store.modal === 'holiday') {
       const input: HolidayHourInput = {
-        date: parseDateMMDDYYYY(holidayForm.date),
+        date: parseDateInputValue(holidayForm.date),
         name: holidayForm.name,
         hours: holidayForm.hours || '0',
       }
@@ -342,7 +346,7 @@ export function EditModal() {
     >
       <div
         className="dialog elev-lg relative"
-        style={{ background: '#1b1d2e', width: 430 }}
+        style={{ background: '#1b1d2e', width: 'min(430px, 100%)' }}
       >
         <div
           className="absolute -top-[30px] right-[14px]"
@@ -366,8 +370,8 @@ export function EditModal() {
                 }
               />
             </div>
-            <div className="flex gap-[11px]">
-              <div className="field flex-1">
+            <div className="flex flex-col gap-[11px] sm:flex-row">
+              <div className="field sm:flex-1">
                 <label>Amount</label>
                 <input
                   className="input mono"
@@ -379,7 +383,7 @@ export function EditModal() {
                   }
                 />
               </div>
-              <div className="field" style={{ width: 120 }}>
+              <div className="field sm:w-[120px]">
                 <label>Due day (1–31)</label>
                 <input
                   className="input mono"
@@ -420,19 +424,19 @@ export function EditModal() {
 
         {store.modal === 'income' && (
           <div className="flex flex-col gap-[11px]">
-            <div className="flex gap-[11px]">
-              <div className="field flex-1">
-                <label>Date (MM/DD/YYYY)</label>
+            <div className="flex flex-col gap-[11px] sm:flex-row">
+              <div className="field sm:flex-1">
+                <label>Date</label>
                 <input
                   className="input mono"
+                  type="date"
                   value={incomeForm.date}
                   onChange={(e) =>
                     setIncomeForm((f) => ({ ...f, date: e.target.value }))
                   }
-                  placeholder="12/12/2025"
                 />
               </div>
-              <div className="field" style={{ width: 140 }}>
+              <div className="field sm:w-[140px]">
                 <label>Amount</label>
                 <input
                   className="input mono"
@@ -478,14 +482,14 @@ export function EditModal() {
         {store.modal === 'ledger' && (
           <div className="flex flex-col gap-[11px]">
             <div className="field">
-              <label>Date (MM/DD/YYYY)</label>
+              <label>Date</label>
               <input
                 className="input mono"
+                type="date"
                 value={ledgerForm.date}
                 onChange={(e) =>
                   setLedgerForm((f) => ({ ...f, date: e.target.value }))
                 }
-                placeholder="12/12/2025"
               />
             </div>
             <div className="field">
@@ -561,8 +565,8 @@ export function EditModal() {
                 ))}
               </select>
             </div>
-            <div className="flex gap-[11px]">
-              <div className="field flex-1">
+            <div className="flex flex-col gap-[11px] sm:flex-row">
+              <div className="field sm:flex-1">
                 <label>Amount</label>
                 <input
                   className="input mono"
@@ -577,7 +581,7 @@ export function EditModal() {
                   }
                 />
               </div>
-              <div className="field" style={{ width: 120 }}>
+              <div className="field sm:w-[120px]">
                 <label>Due day (1–31)</label>
                 <input
                   className="input mono"
@@ -624,8 +628,8 @@ export function EditModal() {
 
         {store.modal === 'ptoYear' && (
           <div className="flex flex-col gap-[11px]">
-            <div className="flex gap-[11px]">
-              <div className="field flex-1">
+            <div className="flex flex-col gap-[11px] sm:flex-row">
+              <div className="field sm:flex-1">
                 <label>Year</label>
                 <input
                   className="input mono"
@@ -637,7 +641,7 @@ export function EditModal() {
                   placeholder="2027"
                 />
               </div>
-              <div className="field flex-1">
+              <div className="field sm:flex-1">
                 <label>Available (hours)</label>
                 <input
                   className="input mono"
@@ -670,11 +674,12 @@ export function EditModal() {
                 placeholder="Christmas"
               />
             </div>
-            <div className="flex gap-[11px]">
-              <div className="field flex-1">
-                <label>Start (MM/DD/YYYY)</label>
+            <div className="flex flex-col gap-[11px] sm:flex-row">
+              <div className="field sm:flex-1">
+                <label>Start</label>
                 <input
                   className="input mono"
+                  type="date"
                   value={ptoPlanForm.startDate}
                   onChange={(e) =>
                     setPtoPlanForm((f) => ({
@@ -682,23 +687,22 @@ export function EditModal() {
                       startDate: e.target.value,
                     }))
                   }
-                  placeholder="12/16/2025"
                 />
               </div>
-              <div className="field flex-1">
-                <label>End (MM/DD/YYYY)</label>
+              <div className="field sm:flex-1">
+                <label>End</label>
                 <input
                   className="input mono"
+                  type="date"
                   value={ptoPlanForm.endDate}
                   onChange={(e) =>
                     setPtoPlanForm((f) => ({ ...f, endDate: e.target.value }))
                   }
-                  placeholder="12/31/2025"
                 />
               </div>
             </div>
-            <div className="flex gap-[11px]">
-              <div className="field" style={{ width: 120 }}>
+            <div className="flex flex-col gap-[11px] sm:flex-row">
+              <div className="field sm:w-[120px]">
                 <label>Hours</label>
                 <input
                   className="input mono"
@@ -711,7 +715,7 @@ export function EditModal() {
                   placeholder="72.00"
                 />
               </div>
-              <div className="field flex-1">
+              <div className="field sm:flex-1">
                 <label>Status</label>
                 <div className="seg w-full">
                   <label className="seg-opt flex-1 justify-center">
@@ -775,19 +779,19 @@ export function EditModal() {
                 placeholder="Christmas Day"
               />
             </div>
-            <div className="flex gap-[11px]">
-              <div className="field flex-1">
-                <label>Date (MM/DD/YYYY)</label>
+            <div className="flex flex-col gap-[11px] sm:flex-row">
+              <div className="field sm:flex-1">
+                <label>Date</label>
                 <input
                   className="input mono"
+                  type="date"
                   value={holidayForm.date}
                   onChange={(e) =>
                     setHolidayForm((f) => ({ ...f, date: e.target.value }))
                   }
-                  placeholder="12/25/2025"
                 />
               </div>
-              <div className="field" style={{ width: 110 }}>
+              <div className="field sm:w-[110px]">
                 <label>Hours</label>
                 <input
                   className="input mono"

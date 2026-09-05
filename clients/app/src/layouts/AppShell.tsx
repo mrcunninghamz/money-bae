@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -50,33 +50,53 @@ export function AppShell() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
     if (!store.authed) navigate({ to: '/login' })
   }, [store.authed, navigate])
 
   useEffect(() => {
+    setMobileNavOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null
       if (target && /input|textarea/i.test(target.tagName)) return
+      if (event.key === 'Escape' && mobileNavOpen) {
+        setMobileNavOpen(false)
+        return
+      }
       const to = SHORTCUT_TARGETS[event.key.toLowerCase()]
       if (to) navigate({ to })
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [navigate])
+  }, [navigate, mobileNavOpen])
 
   if (!store.authed) return null
 
   return (
     <div className="flex" style={{ minHeight: '100vh', background: '#161826' }}>
+      {mobileNavOpen && (
+        <div
+          className="fixed inset-0 z-40 md:hidden"
+          style={{ background: 'rgba(16,17,32,.62)' }}
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
       <aside
-        className="flex flex-none flex-col gap-[18px]"
+        className={
+          mobileNavOpen
+            ? 'fixed inset-y-0 left-0 z-50 flex flex-none flex-col gap-[18px] md:static md:z-auto'
+            : 'hidden flex-none flex-col gap-[18px] md:flex'
+        }
         style={{
           width: 212,
           padding: '16px 12px',
           borderRight: '1px solid rgba(233,233,237,.08)',
-          background: '#14162399',
+          background: '#161826',
         }}
       >
         <div className="flex items-center gap-[9px] px-1">
@@ -98,7 +118,7 @@ export function AppShell() {
               activeProps={{ 'aria-current': 'page' }}
             >
               <span
-                className="mono"
+                className="mono hidden md:inline"
                 style={{ width: 14, fontSize: 11, opacity: 0.6 }}
               >
                 {item.key}
@@ -202,6 +222,36 @@ export function AppShell() {
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col">
+        <div
+          className="flex items-center gap-[10px] md:hidden"
+          style={{
+            padding: '12px 16px',
+            borderBottom: '1px solid rgba(233,233,237,.08)',
+          }}
+        >
+          <button
+            type="button"
+            className="btn btn-secondary btn-icon"
+            aria-label="Open navigation"
+            onClick={() => setMobileNavOpen(true)}
+          >
+            <svg viewBox="0 0 20 20" style={{ width: 18 }} aria-hidden="true">
+              <path
+                d="M3 5.5h14M3 10h14M3 14.5h14"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+          <Logo size={26} />
+          <span
+            className="mono"
+            style={{ fontSize: 14, letterSpacing: '-.01em' }}
+          >
+            money<span style={{ color: '#9184d9' }}>·</span>bae
+          </span>
+        </div>
         <Outlet />
         <footer
           className="mono flex gap-[18px]"
@@ -212,12 +262,12 @@ export function AppShell() {
             color: 'rgba(233,233,237,.42)',
           }}
         >
-          <span>h home</span>
-          <span>i income</span>
-          <span>b bills</span>
-          <span>l ledger</span>
-          <span>p pto</span>
-          <span>s settings</span>
+          <span className="hidden md:inline">h home</span>
+          <span className="hidden md:inline">i income</span>
+          <span className="hidden md:inline">b bills</span>
+          <span className="hidden md:inline">l ledger</span>
+          <span className="hidden md:inline">p pto</span>
+          <span className="hidden md:inline">s settings</span>
           <span className="ml-auto">{crumbFor(pathname)}</span>
         </footer>
       </main>
