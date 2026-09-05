@@ -12,12 +12,18 @@
 			{ "key": "accessTokenUrl", "value": "{{tokenUrl}}", "type": "string" },
 			{ "key": "clientId", "value": "{{clientId}}", "type": "string" },
 			{ "key": "scope", "value": "{{scope}}", "type": "string" },
-			{ "key": "redirect_uri", "value": "https://oauth.pstmn.io/v1/browser-callback", "type": "string" },
-			{ "key": "useBrowser", "value": true, "type": "boolean" },
-			{ "key": "client_authentication", "value": "header", "type": "string" },
+			{ "key": "redirect_uri", "value": "https://oauth.pstmn.io/v1/callback", "type": "string" },
+			{ "key": "client_authentication", "value": "body", "type": "string" },
 			{ "key": "challengeAlgorithm", "value": "S256", "type": "string" },
 			{ "key": "addTokenTo", "value": "header", "type": "string" },
-			{ "key": "tokenName", "value": "money-bae-token", "type": "string" }
+			{ "key": "tokenName", "value": "money-bae-token", "type": "string" },
+			{
+				"key": "tokenRequestParams",
+				"value": [
+					{ "key": "Origin", "value": "{{origin}}", "send_as": "request_header", "enabled": true }
+				],
+				"type": "any"
+			}
 		]
 	},
 	"variable": [
