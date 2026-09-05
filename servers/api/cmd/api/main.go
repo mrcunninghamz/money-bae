@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -22,9 +23,12 @@ func main() {
 		log.Fatalf("failed to migrate database: %v", err)
 	}
 
-	// MockVerifier stands in for OIDCVerifier until a real IdP is chosen —
-	// it always authenticates as the seed user from cmd/import-legacy-data.
-	router := httpapi.NewRouter(db, auth.MockVerifier{DB: db})
+	verifier, err := auth.NewOIDCVerifier(context.Background(), cfg.OIDCIssuerURL, cfg.OIDCAudience, db)
+	if err != nil {
+		log.Fatalf("failed to initialize OIDC verifier: %v", err)
+	}
+
+	router := httpapi.NewRouter(db, verifier)
 
 	log.Printf("listening on :%s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {
