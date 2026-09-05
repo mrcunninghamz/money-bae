@@ -416,6 +416,13 @@ resource "azuread_application" "spa" {
   display_name     = var.display_name
   sign_in_audience = "AzureADMyOrg"
 
+  # CIAM rejects application creation with AccessTokenAcceptedVersion 1 or
+  # null ("InvalidAccessTokenVersion") — every app in the tenant needs v2
+  # tokens, not just the API resource.
+  api {
+    requested_access_token_version = 2
+  }
+
   single_page_application {
     redirect_uris = var.redirect_uris
   }
