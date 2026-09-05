@@ -79,7 +79,7 @@ createdb money_bae_dev
 createdb money_bae
 
 # For Azure PostgreSQL, use connection strings from Terraform outputs
-# Example: postgres://username:password@psql-mb-core-cus-dev.postgres.database.azure.com/money_bae?sslmode=require
+# Example: postgres://username:password@psql-kkb-core-cus-dev.postgres.database.azure.com/money_bae?sslmode=require
 
 # Switch to development environment
 ./use-dev-env.sh
@@ -95,7 +95,7 @@ vi ~/.config/money-bae-dev/money-bae-dev.toml
 
 # Add your database connection string:
 # For local: database_connection_string = "postgres://username@localhost/money_bae_dev"
-# For Azure: database_connection_string = "postgres://username:password@psql-mb-core-cus-dev.postgres.database.azure.com/money_bae?sslmode=require"
+# For Azure: database_connection_string = "postgres://username:password@psql-kkb-core-cus-dev.postgres.database.azure.com/money_bae?sslmode=require"
 ```
 
 5. Build and run:

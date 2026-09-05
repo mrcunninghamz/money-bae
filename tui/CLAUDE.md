@@ -39,7 +39,7 @@ DATABASE_URL=postgres://username@localhost/money_bae_dev
 DATABASE_URL=postgres://username@localhost/money_bae
 
 # For Azure PostgreSQL (from Terraform outputs):
-# DATABASE_URL=postgres://username:password@psql-mb-core-cus-dev.postgres.database.azure.com/money_bae?sslmode=require
+# DATABASE_URL=postgres://username:password@psql-kkb-core-cus-dev.postgres.database.azure.com/money_bae?sslmode=require
 ```
 
 **Configure via confy files:**
