@@ -44,7 +44,7 @@ different auth contexts:
 
 - Creating the CIAM tenant is a subscription-scoped operation — same
   ambient `az login` auth `platform/db` already uses against subscription
-  `c6f1212c-ec19-425f-96a0-41f2db717ea8`.
+  `085f952f-488d-4c4d-bd33-0fcf8fd37e17`.
 - Managing app registrations requires the `azuread` provider's `tenant_id`
   to point at the *new* tenant, and requires the calling identity to be
   authenticated *against that tenant* specifically (CIAM tenants have no
@@ -93,7 +93,7 @@ platform/entra-external-id/
         └── shared.tfvars            # both environments applied together, one state
 ```
 
-State: its own company-level shared backend — `stkkbtfstateshared` storage
+State: its own company-level shared backend — `stkkbtfstatecus` storage
 account, `rg-kkbae-tfstate-shared` resource group, `tfstate` container —
 separate from `platform/db`'s existing `stmbtfstateshared`/
 `rg-moneybae-tfstate-shared` (which is money-bae product-level state).
@@ -128,7 +128,7 @@ terraform {
 }
 
 provider "azurerm" {
-  subscription_id = "c6f1212c-ec19-425f-96a0-41f2db717ea8"
+  subscription_id = "085f952f-488d-4c4d-bd33-0fcf8fd37e17"
   features {}
   resource_provider_registrations = "none"
 }

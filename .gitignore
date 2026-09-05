@@ -7,6 +7,10 @@
 .env.prod
 .env.local
 
+# direnv (per-directory env, e.g. isolated az CLI credentials)
+.envrc
+.azure/
+
 # IDE files
 .idea/
 .vscode/

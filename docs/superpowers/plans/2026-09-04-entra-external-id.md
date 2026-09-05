@@ -14,9 +14,9 @@
 
 - Terraform `>= 1.1` (matches `platform/db`).
 - Provider pins (exact, matching `platform/db`'s pinning style): `azurerm = "=4.1.0"`, `azapi = "=2.12.0"` (tenant/ only), `azuread = "=3.9.0"` and `random = "=3.9.0"` (app-registrations/ only).
-- Azure subscription for the tenant/ resource group: `c6f1212c-ec19-425f-96a0-41f2db717ea8` (hardcoded in `provider "azurerm"`, same as `platform/db/infrastructure/providers.tf`).
-- Dedicated company-level remote state backend: storage account `stkkbtfstateshared`, resource group `rg-kkbae-tfstate-shared`, container `tfstate` — keys `identity/tenant.tfstate` and `identity/app-registrations.tfstate`. This is a SEPARATE backend from `platform/db`'s existing `stmbtfstateshared`/`rg-moneybae-tfstate-shared` (money-bae product-level state) — the tenant is company-level shared infrastructure (company `kkbae`), so its Terraform state gets its own company-level backend rather than reusing money-bae's. Unlike `stmbtfstateshared`, this backend does not exist yet and must be bootstrapped once via `az` CLI (Task 0) before either root config can `terraform init` against it — a chicken-and-egg Terraform can't resolve on its own (a backend must exist before `terraform init` can target it).
-- Both root configs (`tenant/`, `app-registrations/`) initialize against this **real** backend — `terraform init` with the actual `-backend-config` flags (matching `platform/db`'s README style, including `-backend-config="subscription_id=c6f1212c-ec19-425f-96a0-41f2db717ea8"`), not `-backend=false`. The `subscription_id` in the backend config targets the right subscription regardless of which subscription `az account show` currently reports as default — this is how `platform/db` already handles it. `terraform init` (even against a real backend) only creates/reads Terraform's own state-tracking metadata; it never creates, modifies, or destroys an Azure/Entra resource, so it's as safe to automate as `validate`/`plan`/`fmt`. Only `apply`/`destroy` need the human-review gate below. Modules (`api-registration`, `spa-registration`, and anything under `tenant/modules/` if added later) never get a backend block — Terraform hard-errors on that for non-root modules — so their standalone validation still uses `-backend=false`, which is unrelated to this real-backend requirement.
+- Azure subscription for the tenant/ resource group: `085f952f-488d-4c4d-bd33-0fcf8fd37e17` (hardcoded in `provider "azurerm"`, same as `platform/db/infrastructure/providers.tf`).
+- Dedicated company-level remote state backend: storage account `stkkbtfstatecus`, resource group `rg-kkbae-tfstate-shared`, container `tfstate` — keys `identity/tenant.tfstate` and `identity/app-registrations.tfstate`. This is a SEPARATE backend from `platform/db`'s existing `stmbtfstateshared`/`rg-moneybae-tfstate-shared` (money-bae product-level state) — the tenant is company-level shared infrastructure (company `kkbae`), so its Terraform state gets its own company-level backend rather than reusing money-bae's. Unlike `stmbtfstateshared`, this backend does not exist yet and must be bootstrapped once via `az` CLI (Task 0) before either root config can `terraform init` against it — a chicken-and-egg Terraform can't resolve on its own (a backend must exist before `terraform init` can target it).
+- Both root configs (`tenant/`, `app-registrations/`) initialize against this **real** backend — `terraform init` with the actual `-backend-config` flags (matching `platform/db`'s README style, including `-backend-config="subscription_id=085f952f-488d-4c4d-bd33-0fcf8fd37e17"`), not `-backend=false`. The `subscription_id` in the backend config targets the right subscription regardless of which subscription `az account show` currently reports as default — this is how `platform/db` already handles it. `terraform init` (even against a real backend) only creates/reads Terraform's own state-tracking metadata; it never creates, modifies, or destroys an Azure/Entra resource, so it's as safe to automate as `validate`/`plan`/`fmt`. Only `apply`/`destroy` need the human-review gate below. Modules (`api-registration`, `spa-registration`, and anything under `tenant/modules/` if added later) never get a backend block — Terraform hard-errors on that for non-root modules — so their standalone validation still uses `-backend=false`, which is unrelated to this real-backend requirement.
 - No `infrastructure/` wrapper subfolder — `platform/entra-external-id/tenant/` and `platform/entra-external-id/app-registrations/` sit directly under `platform/entra-external-id/`, matching `platform/api/` and `platform/web-client/` (only `platform/db/` uses the wrapper).
 - Region: `centralus` / `cus` for the resource group, matching `platform/db`.
 - **Never run `terraform apply` or `terraform destroy` without a human reviewing the `terraform plan` output first** — this is real, live Azure/Entra infrastructure. No task in this plan runs `apply`; every task stops at `terraform validate`/`plan`-safe commands, and the real `init`/`plan`/`apply` sequence is documented as a manual runbook for the human to execute themselves (Task 4).
@@ -36,21 +36,21 @@ This is a real Azure-resource-creating action, run once, by the human (or the co
 az group create \
   --name rg-kkbae-tfstate-shared \
   --location centralus \
-  --subscription c6f1212c-ec19-425f-96a0-41f2db717ea8
+  --subscription 085f952f-488d-4c4d-bd33-0fcf8fd37e17
 ```
 
 - [ ] **Step 2: Create the storage account**
 
 ```bash
 az storage account create \
-  --name stkkbtfstateshared \
+  --name stkkbtfstatecus \
   --resource-group rg-kkbae-tfstate-shared \
   --location centralus \
   --sku Standard_LRS \
   --kind StorageV2 \
   --min-tls-version TLS1_2 \
   --allow-blob-public-access false \
-  --subscription c6f1212c-ec19-425f-96a0-41f2db717ea8
+  --subscription 085f952f-488d-4c4d-bd33-0fcf8fd37e17
 ```
 
 - [ ] **Step 3: Create the blob container**
@@ -58,12 +58,12 @@ az storage account create \
 ```bash
 az storage container create \
   --name tfstate \
-  --account-name stkkbtfstateshared \
+  --account-name stkkbtfstatecus \
   --auth-mode login \
-  --subscription c6f1212c-ec19-425f-96a0-41f2db717ea8
+  --subscription 085f952f-488d-4c4d-bd33-0fcf8fd37e17
 ```
 
-Expected: each command prints a JSON object for the created resource (or, on Step 3, `{"created": true}`). All three commands target subscription `c6f1212c-ec19-425f-96a0-41f2db717ea8` explicitly via `--subscription`, regardless of whichever subscription `az account show` reports as the CLI's current default.
+Expected: each command prints a JSON object for the created resource (or, on Step 3, `{"created": true}`). All three commands target subscription `085f952f-488d-4c4d-bd33-0fcf8fd37e17` explicitly via `--subscription`, regardless of whichever subscription `az account show` reports as the CLI's current default.
 
 ---
 
@@ -100,7 +100,7 @@ terraform {
 }
 
 provider "azurerm" {
-  subscription_id = "c6f1212c-ec19-425f-96a0-41f2db717ea8"
+  subscription_id = "085f952f-488d-4c4d-bd33-0fcf8fd37e17"
   features {}
   resource_provider_registrations = "none"
 }
@@ -238,10 +238,10 @@ Run from `platform/entra-external-id/tenant/`:
 terraform fmt -check
 terraform init \
   -backend-config="resource_group_name=rg-kkbae-tfstate-shared" \
-  -backend-config="storage_account_name=stkkbtfstateshared" \
+  -backend-config="storage_account_name=stkkbtfstatecus" \
   -backend-config="container_name=tfstate" \
   -backend-config="key=identity/tenant.tfstate" \
-  -backend-config="subscription_id=c6f1212c-ec19-425f-96a0-41f2db717ea8"
+  -backend-config="subscription_id=085f952f-488d-4c4d-bd33-0fcf8fd37e17"
 terraform validate
 ```
 
@@ -519,13 +519,13 @@ variable "ciam_tenant_id" {
 variable "local_redirect_uri" {
   type        = string
   description = "SPA redirect URI for the local environment"
-  default     = "http://localhost:3000"
+  default     = "http://localhost:3000/"
 }
 
 variable "dev_redirect_uri" {
   type        = string
   description = "SPA redirect URI for the dev environment: the web client's deployed CloudFront domain. Update this after platform/web-client's first `cdk deploy` — the distribution has no custom domain, so its domain is only known post-deploy."
-  default     = "https://REPLACE-AFTER-FIRST-WEB-CLIENT-DEPLOY.cloudfront.net"
+  default     = "https://REPLACE-AFTER-FIRST-WEB-CLIENT-DEPLOY.cloudfront.net/"
 }
 ```
 
@@ -604,7 +604,7 @@ output "api_identifier_uri_dev" {
 - [ ] **Step 5: Write `environments/shared.tfvars`**
 
 ```hcl
-local_redirect_uri = "http://localhost:3000"
+local_redirect_uri = "http://localhost:3000/"
 # dev_redirect_uri intentionally omitted here — its default in variables.tf
 # is a clearly-invalid placeholder domain. Override it with -var once the
 # real CloudFront domain is known (see ../CLAUDE.md).
@@ -618,10 +618,10 @@ Run from `platform/entra-external-id/app-registrations/`:
 terraform fmt -check -recursive
 terraform init \
   -backend-config="resource_group_name=rg-kkbae-tfstate-shared" \
-  -backend-config="storage_account_name=stkkbtfstateshared" \
+  -backend-config="storage_account_name=stkkbtfstatecus" \
   -backend-config="container_name=tfstate" \
   -backend-config="key=identity/app-registrations.tfstate" \
-  -backend-config="subscription_id=c6f1212c-ec19-425f-96a0-41f2db717ea8"
+  -backend-config="subscription_id=085f952f-488d-4c4d-bd33-0fcf8fd37e17"
 terraform validate
 ```
 
@@ -688,10 +688,10 @@ already been applied.
 cd tenant
 terraform init \
   -backend-config="resource_group_name=rg-kkbae-tfstate-shared" \
-  -backend-config="storage_account_name=stkkbtfstateshared" \
+  -backend-config="storage_account_name=stkkbtfstatecus" \
   -backend-config="container_name=tfstate" \
   -backend-config="key=identity/tenant.tfstate" \
-  -backend-config="subscription_id=c6f1212c-ec19-425f-96a0-41f2db717ea8"
+  -backend-config="subscription_id=085f952f-488d-4c4d-bd33-0fcf8fd37e17"
 terraform plan -var-file="environments/shared.tfvars"
 # review the plan carefully, then:
 terraform apply -var-file="environments/shared.tfvars"
@@ -715,10 +715,10 @@ az login --tenant "$NEW_TENANT_ID" --allow-no-subscriptions
 cd app-registrations
 terraform init \
   -backend-config="resource_group_name=rg-kkbae-tfstate-shared" \
-  -backend-config="storage_account_name=stkkbtfstateshared" \
+  -backend-config="storage_account_name=stkkbtfstatecus" \
   -backend-config="container_name=tfstate" \
   -backend-config="key=identity/app-registrations.tfstate" \
-  -backend-config="subscription_id=c6f1212c-ec19-425f-96a0-41f2db717ea8"
+  -backend-config="subscription_id=085f952f-488d-4c4d-bd33-0fcf8fd37e17"
 terraform plan \
   -var="ciam_tenant_id=$NEW_TENANT_ID" \
   -var-file="environments/shared.tfvars"

@@ -6,11 +6,15 @@ variable "ciam_tenant_id" {
 variable "local_redirect_uri" {
   type        = string
   description = "SPA redirect URI for the local environment"
-  default     = "http://localhost:3000"
+  # Trailing slash required: Entra rejects a redirect URI with no path
+  # segment (e.g. "http://localhost:3000") unless it ends in "/".
+  default = "http://localhost:3000/"
 }
 
 variable "dev_redirect_uri" {
   type        = string
   description = "SPA redirect URI for the dev environment: the web client's deployed CloudFront domain. Update this after platform/web-client's first `cdk deploy` — the distribution has no custom domain, so its domain is only known post-deploy."
-  default     = "https://REPLACE-AFTER-FIRST-WEB-CLIENT-DEPLOY.cloudfront.net"
+  # Trailing slash required: Entra rejects a redirect URI with no path
+  # segment unless it ends in "/".
+  default = "https://REPLACE-AFTER-FIRST-WEB-CLIENT-DEPLOY.cloudfront.net/"
 }
