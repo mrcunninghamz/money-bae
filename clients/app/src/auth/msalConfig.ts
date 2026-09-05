@@ -32,8 +32,14 @@ const msalConfig: Configuration = {
 export const msalInstance = new PublicClientApplication(msalConfig)
 
 // Requests an ID token with basic profile claims — used for sign-in itself.
+// email is required to actually get the `email` claim: servers/api's
+// Claims.Email maps to the JWT's "email" field specifically (not
+// preferred_username), and user_resolver.go uses it when creating a new
+// user row. given_name/family_name aren't in this tenant's
+// claims_supported at all (confirmed against the real discovery
+// document), so there's no scope that would surface a first/last name.
 export const loginRequest = {
-  scopes: ['openid', 'profile'],
+  scopes: ['openid', 'profile', 'email'],
 }
 
 // Requests an access token scoped to the money-bae API. Kept separate from
