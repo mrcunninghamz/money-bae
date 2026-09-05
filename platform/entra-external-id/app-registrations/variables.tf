@@ -13,8 +13,8 @@ variable "local_redirect_uri" {
 
 variable "dev_redirect_uri" {
   type        = string
-  description = "SPA redirect URI for the dev environment: the web client's deployed CloudFront domain. Update this after platform/web-client's first `cdk deploy` — the distribution has no custom domain, so its domain is only known post-deploy."
+  description = "SPA redirect URI for the dev environment: the web client's deployed CloudFront domain (MoneyBaeWebClient-Dev stack's DistributionDomainName output). No custom domain exists yet, so this is pinned to the actual distribution's domain rather than computed — needs a manual update if the distribution is ever replaced."
   # Trailing slash required: Entra rejects a redirect URI with no path
   # segment unless it ends in "/".
-  default = "https://REPLACE-AFTER-FIRST-WEB-CLIENT-DEPLOY.cloudfront.net/"
+  default = "https://d91s2th9i95hi.cloudfront.net/"
 }

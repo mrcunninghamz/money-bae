@@ -167,12 +167,13 @@ terraform -chdir=app-registrations apply \
   -var-file="environments/shared.tfvars"
 ```
 
-`dev_redirect_uri` defaults to a placeholder domain (see
-`app-registrations/variables.tf`) until `platform/web-client` has been
-deployed at least once. Once you know the real CloudFront domain, add
-`-var="dev_redirect_uri=https://<real-domain>.cloudfront.net"` to the plan
-and apply commands above (or re-apply later to update it — the SPA app
-registration's redirect URI can be changed after the fact).
+`dev_redirect_uri` is pinned to `platform/web-client`'s actual deployed
+CloudFront domain (see `app-registrations/variables.tf`) — get the
+current one with `aws cloudformation describe-stacks --stack-name
+MoneyBaeWebClient-Dev --query "Stacks[0].Outputs"`. If the distribution
+is ever replaced, update the variable's default (or pass
+`-var="dev_redirect_uri=https://<new-domain>.cloudfront.net/"` — note
+the trailing slash, Entra requires it) and re-apply.
 
 ### 4. Wire up the Postman collection
 
