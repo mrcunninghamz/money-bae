@@ -2,8 +2,12 @@ locals {
   # oauth.pstmn.io is Postman's OAuth2 callback proxy, added to every SPA
   # app's redirect URIs so the Postman collection (see ../CLAUDE.md) can
   # obtain real tokens for manual API testing without a second app
-  # registration. jwt.ms is Microsoft's own token-decoding tool, useful for
-  # inspecting claims during manual testing.
+  # registration. CIAM rejects a SPA app's token exchange without a
+  # request that looks like a real cross-origin browser request
+  # (AADSTS9002327) — fixed via the collection's tokenRequestParams
+  # Origin header, not via a different redirect URI/callback mechanism.
+  # jwt.ms is Microsoft's own token-decoding tool, useful for inspecting
+  # claims during manual testing directly in a browser.
   common_redirect_uris = [
     "https://oauth.pstmn.io/v1/callback",
     "https://jwt.ms/",

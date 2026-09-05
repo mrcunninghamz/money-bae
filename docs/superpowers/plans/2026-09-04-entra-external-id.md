@@ -543,8 +543,16 @@ locals {
   # oauth.pstmn.io is Postman's OAuth2 callback proxy, added to every SPA
   # app's redirect URIs so the Postman collection (see ../CLAUDE.md) can
   # obtain real tokens for manual API testing without a second app
-  # registration.
-  postman_callback_redirect_uri = "https://oauth.pstmn.io/v1/callback"
+  # registration. CIAM rejects a SPA app's token exchange without a
+  # request that looks like a real cross-origin browser request
+  # (AADSTS9002327) — fixed via the collection's tokenRequestParams
+  # Origin header, not via a different redirect URI/callback mechanism.
+  # jwt.ms is Microsoft's own token-decoding tool, useful for inspecting
+  # claims during manual testing directly in a browser.
+  common_redirect_uris = [
+    "https://oauth.pstmn.io/v1/callback",
+    "https://jwt.ms/",
+  ]
 }
 
 module "api_local" {
@@ -563,7 +571,7 @@ module "spa_local" {
   source = "./modules/spa-registration"
 
   display_name                    = "money-bae-local"
-  redirect_uris                   = [var.local_redirect_uri, local.postman_callback_redirect_uri]
+  redirect_uris                   = concat([var.local_redirect_uri], local.common_redirect_uris)
   api_client_id                   = module.api_local.client_id
   api_scope_id                    = module.api_local.scope_id
   api_service_principal_object_id = module.api_local.service_principal_object_id
@@ -573,7 +581,7 @@ module "spa_dev" {
   source = "./modules/spa-registration"
 
   display_name                    = "money-bae-dev"
-  redirect_uris                   = [var.dev_redirect_uri, local.postman_callback_redirect_uri]
+  redirect_uris                   = concat([var.dev_redirect_uri], local.common_redirect_uris)
   api_client_id                   = module.api_dev.client_id
   api_scope_id                    = module.api_dev.scope_id
   api_service_principal_object_id = module.api_dev.service_principal_object_id
@@ -815,12 +823,22 @@ Edit `servers/api/docs/collections/money-bae-api.postman_collection.json`: add a
     { "key": "clientId", "value": "{{clientId}}", "type": "string" },
     { "key": "scope", "value": "{{scope}}", "type": "string" },
     { "key": "redirect_uri", "value": "https://oauth.pstmn.io/v1/callback", "type": "string" },
-    { "key": "client_authentication", "value": "header", "type": "string" },
+    { "key": "client_authentication", "value": "body", "type": "string" },
+    { "key": "challengeAlgorithm", "value": "S256", "type": "string" },
     { "key": "addTokenTo", "value": "header", "type": "string" },
-    { "key": "tokenName", "value": "money-bae-token", "type": "string" }
+    { "key": "tokenName", "value": "money-bae-token", "type": "string" },
+    {
+      "key": "tokenRequestParams",
+      "value": [
+        { "key": "Origin", "value": "{{origin}}", "send_as": "request_header", "enabled": true }
+      ],
+      "type": "any"
+    }
   ]
 }
 ```
+
+`client_authentication: body` (not `header`) because these are public/PKCE clients (no secret) — sending `client_id` via HTTP Basic auth header is for confidential clients. `tokenRequestParams` is Postman's documented, supported way (added in Postman v10.13, replacing older workarounds) to attach a custom `Origin` header specifically to the token request — CIAM requires this for any SPA-registered app's token exchange to look like a real cross-origin browser request (`AADSTS9002327` otherwise). `{{origin}}` is a new environment variable per environment: the *origin* (scheme+host+port, no path) of that environment's registered redirect URI.
 
 Update the `token` variable's `description` in the `"variable"` array to:
 `"Manually-pasted fallback bearer token. Prefer the collection's OAuth 2.0 auth (Get New Access Token in Postman) once a real IdP is wired in — see platform/entra-external-id/CLAUDE.md."`
