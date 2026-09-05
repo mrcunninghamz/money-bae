@@ -10,7 +10,7 @@ import (
 // cmd/import-legacy-data — the only user in the system until a real IdP is
 // wired in.
 const (
-	SeedUserSub   = "migration-seed:kmerecido@gmail.com"
+	SeedUserSub   = "mlEnvoOl8QCY6CZ3ul0MD7i7WLDwbCRUW2PvUuM4bqU"
 	SeedUserEmail = "kmerecido@gmail.com"
 )
 
