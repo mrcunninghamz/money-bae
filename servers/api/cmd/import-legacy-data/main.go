@@ -19,10 +19,13 @@ import (
 // See issue #47 for the full design. This tool is read-only against the
 // legacy database and only ever writes to the target (money_bae_api).
 //
-// seedUserSub/seedUserEmail come from internal/auth (auth.SeedUserSub/
-// auth.SeedUserEmail) rather than being redefined here, since MockVerifier
-// must authenticate as exactly this row — a drift between two hardcoded
-// copies would silently provision a second, empty user.
+// seedUserEmail comes from internal/auth (auth.SeedUserEmail) rather than
+// being redefined here, since MockVerifier must authenticate as exactly
+// this row — a drift between two hardcoded copies would silently
+// provision a second, empty user. Sub defaults to auth.SeedUserSub (what
+// MockVerifier asserts) but can be overridden via SEED_USER_SUB so a real
+// OIDC login (whose sub won't match the mock value) resolves to this same
+// seeded/imported user instead of creating a new empty one.
 const seedUserIDString = "01a0682f-2135-7c0a-bd1f-4d1be1918f2b"
 
 func main() {
@@ -49,7 +52,12 @@ func main() {
 		log.Fatalf("failed to migrate target schema: %v", err)
 	}
 
-	userID, err := seedUser(target)
+	seedUserSub := auth.SeedUserSub
+	if v := os.Getenv("SEED_USER_SUB"); v != "" {
+		seedUserSub = v
+	}
+
+	userID, err := seedUser(target, seedUserSub)
 	if err != nil {
 		log.Fatalf("failed to seed user: %v", err)
 	}
@@ -100,7 +108,7 @@ func main() {
 	log.Println("migration complete")
 }
 
-func seedUser(target *gorm.DB) (uuid.UUID, error) {
+func seedUser(target *gorm.DB, sub string) (uuid.UUID, error) {
 	userID := uuid.MustParse(seedUserIDString)
 
 	var user models.User
@@ -108,7 +116,7 @@ func seedUser(target *gorm.DB) (uuid.UUID, error) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		user = models.User{
 			Base:  models.Base{ID: userID},
-			Sub:   auth.SeedUserSub,
+			Sub:   sub,
 			Email: auth.SeedUserEmail,
 		}
 		if err := target.Create(&user).Error; err != nil {
@@ -118,6 +126,13 @@ func seedUser(target *gorm.DB) (uuid.UUID, error) {
 	}
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("looking up seed user: %w", err)
+	}
+
+	if user.Sub != sub {
+		user.Sub = sub
+		if err := target.Save(&user).Error; err != nil {
+			return uuid.Nil, fmt.Errorf("updating seed user sub: %w", err)
+		}
 	}
 	return user.ID, nil
 }

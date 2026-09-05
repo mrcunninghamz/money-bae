@@ -34,7 +34,7 @@ export class WebClientStack extends cdk.Stack {
     });
 
     new s3deploy.BucketDeployment(this, 'SiteDeployment', {
-      sources: [s3deploy.Source.asset(path.join(__dirname, '../../../clients/web/dist'))],
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../../../clients/app/dist'))],
       destinationBucket: bucket,
       distribution,
       distributionPaths: ['/*'],

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { EntityActionBar } from '#/components/EntityActionBar'
+import { ImportIncomeDialog } from '#/components/ImportIncomeDialog'
 import { PageHeader } from '#/components/PageHeader'
 import { SelectCheckbox } from '#/components/SelectCheckbox'
 import type { LedgerDetail } from '#/data/api'
@@ -8,6 +9,17 @@ import { getLedger, moneyToNumber, updateLedgerBill } from '#/data/api'
 import { formatCurrency, formatDateMMDDYYYY } from '#/data/format'
 import { useAppStore } from '#/data/store'
 import { useMultiSelect } from '#/hooks/useMultiSelect'
+
+// A ledger's `date` is its cutoff/payday — income belongs to it if earned
+// sometime in the month leading up to that cutoff, not by calendar month
+// (ledger periods like "August P2"/"September P1" don't align to one).
+function isWithinLedgerWindow(incomeIso: string, ledgerIso: string): boolean {
+  const incomeDate = new Date(incomeIso)
+  const ledgerDate = new Date(ledgerIso)
+  const windowStart = new Date(ledgerDate)
+  windowStart.setUTCMonth(windowStart.getUTCMonth() - 1)
+  return incomeDate > windowStart && incomeDate <= ledgerDate
+}
 
 export const Route = createFileRoute('/_app/ledger/$periodId')({
   component: LedgerItemPage,
@@ -20,6 +32,7 @@ function LedgerItemPage() {
   const incomeSelection = useMultiSelect()
   const [detail, setDetail] = useState<LedgerDetail | null>(null)
   const [loadError, setLoadError] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   function reload() {
     getLedger(periodId)
@@ -32,7 +45,19 @@ function LedgerItemPage() {
 
   useEffect(() => {
     void store.ensureBills()
+    void store.ensureIncome()
   }, [])
+
+  const importCandidates = useMemo(() => {
+    if (!detail) return []
+    return store.income
+      .filter(
+        (income) =>
+          income.ledgerId === null &&
+          isWithinLedgerWindow(income.date, detail.date),
+      )
+      .sort((a, b) => b.date.localeCompare(a.date))
+  }, [store.income, detail])
 
   useEffect(() => {
     store.setActiveLedger(periodId)
@@ -109,12 +134,16 @@ function LedgerItemPage() {
     })
   }
 
-  function handleDeleteIncomes() {
+  function handleRemoveIncomes() {
     const ids = incomeSelection.selectedIds
-    store.requestDelete(ids.length, () => {
-      void store.deleteIncomeEntries(ids).then(reload)
-      incomeSelection.clear()
-    })
+    void store.attachIncomesToLedger(null, ids).then(reload)
+    incomeSelection.clear()
+  }
+
+  async function handleImportConfirm(ids: string[]) {
+    await store.attachIncomesToLedger(periodId, ids)
+    setImportOpen(false)
+    reload()
   }
 
   if (loadError) {
@@ -129,6 +158,21 @@ function LedgerItemPage() {
   }
 
   if (!detail) return null
+
+  // detail.income/expenses/net are stored totals from the legacy import,
+  // disconnected from the incomes/ledgerBills actually attached — compute
+  // the real figures instead so they stay correct as rows are
+  // attached/removed here. Bank balance has no association to derive from
+  // (it's an external fact), so it stays as the stored/manually-edited value.
+  const incomeTotal = detail.incomes.reduce(
+    (sum, income) => sum + moneyToNumber(income.amount),
+    0,
+  )
+  const expensesTotal = detail.ledgerBills.reduce(
+    (sum, lb) => sum + moneyToNumber(lb.amount),
+    0,
+  )
+  const netTotal = moneyToNumber(detail.bankBalance) + incomeTotal - expensesTotal
 
   return (
     <>
@@ -239,12 +283,28 @@ function LedgerItemPage() {
             >
               <span className="card-kicker mono">incomes</span>
               <div className="flex gap-[8px] ml-auto">
-                <EntityActionBar
-                  selectedCount={incomeSelection.count}
-                  addLabel="+ Add income"
-                  onAdd={() => store.openIncomeModal('Add')}
-                  onDelete={handleDeleteIncomes}
-                />
+                <button
+                  className="btn btn-primary mono"
+                  style={{ fontSize: 12.5 }}
+                  onClick={() => store.openIncomeModal('Add')}
+                >
+                  + Add income
+                </button>
+                <button
+                  className="btn btn-secondary mono"
+                  style={{ fontSize: 12.5 }}
+                  onClick={() => setImportOpen(true)}
+                >
+                  + Import income
+                </button>
+                <button
+                  className="btn btn-secondary mono"
+                  style={{ fontSize: 12.5 }}
+                  disabled={incomeSelection.count === 0}
+                  onClick={handleRemoveIncomes}
+                >
+                  Remove
+                </button>
               </div>
             </div>
             <table className="table">
@@ -292,7 +352,19 @@ function LedgerItemPage() {
             className="card elev-sm"
             style={{ background: '#1b1d2e', padding: '16px 18px', gap: 11 }}
           >
-            <span className="card-kicker mono">summary</span>
+            <div className="flex items-center gap-[8px]">
+              <span className="card-kicker mono">summary</span>
+              <button
+                className="btn btn-secondary mono ml-auto"
+                style={{ fontSize: 12 }}
+                onClick={() => {
+                  store.selectLedger(detail.id)
+                  store.openLedgerModal('Edit')
+                }}
+              >
+                Edit
+              </button>
+            </div>
             <div
               className="mono flex flex-col gap-[6px]"
               style={{ fontSize: 13 }}
@@ -313,7 +385,7 @@ function LedgerItemPage() {
                 >
                   Income ({detail.incomes.length} items)
                 </span>
-                <span>{formatCurrency(moneyToNumber(detail.income))}</span>
+                <span>{formatCurrency(incomeTotal)}</span>
               </div>
               <div className="flex">
                 <span
@@ -322,7 +394,7 @@ function LedgerItemPage() {
                 >
                   Expenses
                 </span>
-                <span>{formatCurrency(moneyToNumber(detail.expenses))}</span>
+                <span>{formatCurrency(expensesTotal)}</span>
               </div>
             </div>
             <div
@@ -345,12 +417,45 @@ function LedgerItemPage() {
                 net
               </span>
               <span className="mono" style={{ fontSize: 24 }}>
-                {formatCurrency(moneyToNumber(detail.net))}
+                {formatCurrency(netTotal)}
               </span>
             </div>
+            {detail.notes && (
+              <>
+                <div
+                  className="h-px"
+                  style={{
+                    background:
+                      'linear-gradient(to right,transparent,rgba(145,132,217,.5),transparent)',
+                  }}
+                />
+                <div className="flex flex-col gap-[4px]">
+                  <span
+                    className="mono"
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: '.16em',
+                      textTransform: 'uppercase',
+                      color: 'rgba(233,233,237,.4)',
+                    }}
+                  >
+                    notes
+                  </span>
+                  <span style={{ fontSize: 13, lineHeight: 1.5 }}>
+                    {detail.notes}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
+      <ImportIncomeDialog
+        open={importOpen}
+        candidates={importCandidates}
+        onClose={() => setImportOpen(false)}
+        onConfirm={handleImportConfirm}
+      />
     </>
   )
 }

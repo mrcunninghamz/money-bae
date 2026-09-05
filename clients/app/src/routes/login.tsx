@@ -39,35 +39,15 @@ function LoginPage() {
             sign in to your cycles
           </div>
         </div>
-        <form
+        <div
           className="card elev-sm flex flex-col gap-[12px]"
           style={{ background: '#1b1d2e', padding: '18px 20px' }}
-          onSubmit={(event) => {
-            event.preventDefault()
-            store.signIn()
-          }}
         >
-          <div className="field">
-            <label>Email</label>
-            <input className="input mono" defaultValue="tj@money.bae" />
-          </div>
-          <div className="field">
-            <label>Password</label>
-            <input
-              className="input mono"
-              type="password"
-              defaultValue="hunter22"
-            />
-          </div>
-          <label className="radio">
-            <input type="checkbox" defaultChecked />
-            <span className="dot" />
-            <span>Keep me signed in on this machine</span>
-          </label>
           <button
             className="btn btn-primary btn-block mono"
-            type="submit"
+            type="button"
             style={{ minHeight: 40 }}
+            onClick={store.signIn}
           >
             Sign in
           </button>
@@ -79,9 +59,9 @@ function LoginPage() {
               textAlign: 'center',
             }}
           >
-            single-user install · local database
+            redirects to Microsoft Entra to sign in
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )

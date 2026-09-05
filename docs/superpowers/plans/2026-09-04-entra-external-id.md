@@ -676,7 +676,7 @@ Entra External ID (CIAM) tenant and its app registrations. One tenant is
 shared across environments — mirroring how `../db` shares one Postgres
 server across two databases — holding four app registrations:
 
-- `money-bae-local` / `money-bae-dev` — SPA (PKCE) clients for `../../clients/web`
+- `money-bae-local` / `money-bae-dev` — SPA (PKCE) clients for `../../clients/app`
 - `money-bae-api-local` / `money-bae-api-dev` — API resources for `../../servers/api`,
   each exposing an `access_as_user` scope that its matching SPA app is
   pre-consented for.

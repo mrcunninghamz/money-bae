@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`clients/web/` is a TanStack Start application — React 19, TypeScript, file-based routing — scaffolded with `create-tsrouter-app`. It implements the money-bae bill-cycle budgeting UI (sign-in, home dashboard, ledger, bills, income, PTO/holidays, settings) from the Claude Design mockup ("Money-bae UI mockups" project, `Money-Bae.dc.html`).
+`clients/app/` is a TanStack Start application — React 19, TypeScript, file-based routing — scaffolded with `create-tsrouter-app`. It implements the money-bae bill-cycle budgeting UI (sign-in, home dashboard, ledger, bills, income, PTO/holidays, settings) from the Claude Design mockup ("Money-bae UI mockups" project, `Money-Bae.dc.html`).
 
 ## Commands
 
-Run from `clients/web/`:
+Run from `clients/app/`:
 
 - `npm run dev` — start the dev server (port 3000)
 - `npm run build` — production build

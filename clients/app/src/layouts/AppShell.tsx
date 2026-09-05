@@ -180,17 +180,21 @@ export function AppShell() {
           >
             <AccountAvatar size={28} />
             <span
-              className="flex flex-col items-start"
+              className="flex min-w-0 flex-col items-start"
               style={{ lineHeight: 1.25 }}
             >
-              <span className="mono" style={{ fontSize: 12.5 }}>
-                tj
-              </span>
               <span
                 className="mono"
-                style={{ fontSize: 10, color: 'rgba(233,233,237,.45)' }}
+                style={{
+                  fontSize: 12.5,
+                  maxWidth: '100%',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+                title={store.email ?? undefined}
               >
-                tj@money.bae
+                {store.email}
               </span>
             </span>
           </button>

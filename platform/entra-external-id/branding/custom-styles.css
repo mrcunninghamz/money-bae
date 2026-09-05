@@ -1,0 +1,380 @@
+/* Entra External ID (CIAM) custom page CSS, restyled to match the
+   money-bae web client's "Nocturne" design system — see
+   clients/app/src/styles/{tokens,components}.css and the rendered look of
+   clients/app/src/routes/login.tsx. Upload via Company Branding > Sign-in
+   pages in the Entra portal (no Terraform resource for this yet, see
+   platform/entra-external-id/CLAUDE.md). Custom fonts via @font-face
+   aren't supported here, so headings/body fall back to a system stack
+   that approximates Inter instead of loading it. */
+
+@font-face
+{
+    /* Not supported by Entra External ID custom CSS — left empty. */
+}
+
+body
+{
+    background: #161826;
+    color: #e9e9ed;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+}
+
+a,
+a:link
+{
+    color: #9184d9;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+a:hover
+{
+    color: #b5abfc;
+}
+
+a:focus
+{
+    outline: 2px solid #9184d9;
+    outline-offset: 2px;
+}
+
+a:focus:hover
+{
+    color: #b5abfc;
+    outline: 2px solid #9184d9;
+    outline-offset: 2px;
+}
+
+a:active
+{
+    color: #5d5294;
+}
+
+.ext-background-image
+{
+    background-color: #161826;
+}
+
+.ext-background-overlay
+{
+    /* Flattens whatever background image is configured in the portal down
+       to a solid color, matching the plain dark background the SPA login
+       page uses instead of a photo. */
+    background-color: #161826;
+    opacity: 0.97;
+}
+
+.ext-header
+{
+    background: transparent;
+    padding: 24px 24px 0;
+    text-align: center;
+}
+
+.ext-header-logo
+{
+    height: 48px;
+    margin: 0 auto 8px;
+}
+
+.ext-middle
+{
+    background: transparent;
+}
+
+.ext-vertical-split-main-section
+{
+    background: #161826;
+}
+
+.ext-vertical-split-background-image-container
+{
+    background-color: #161826;
+}
+
+.ext-sign-in-box
+{
+    width: 400px;
+    max-width: calc(100vw - 32px);
+    background: #1b1d2e;
+    border-radius: 8px;
+    box-shadow: 0 0 0 1px #3f424d;
+    padding: 18px 24px;
+}
+
+.ext-banner-logo
+{
+    display: block;
+    height: 64px;
+    margin: 0 auto 12px;
+}
+
+.ext-title
+{
+    /* !important: Entra's own built-in stylesheet targets this element with
+       higher-specificity selectors than a flat .ext-title, so a plain
+       declaration silently loses the cascade (seen on the "Stay signed in?"
+       interrupt page — dark-on-dark, unreadable). */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+    font-weight: 500 !important;
+    font-size: 20px !important;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    color: #e9e9ed !important;
+    text-align: center;
+    margin-bottom: 6px;
+}
+
+.ext-subtitle
+{
+    font-size: 13px !important;
+    color: rgba(233, 233, 237, 0.7) !important;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.ext-header-description
+{
+    font-size: 13px !important;
+    color: rgba(233, 233, 237, 0.7) !important;
+    text-align: center;
+}
+
+/* "Pick an account" tile list (.tilesHolder > .tile-container > .table >
+   .table-row > .table-cell...) — Microsoft's own internal markup for this
+   page, not one of the documented .ext-* Company Branding selectors (see
+   https://learn.microsoft.com/en-us/entra/fundamentals/reference-company-branding-css-template),
+   so it's unstyled by default and renders in Microsoft's default
+   light-background text color — dark-on-dark against our .ext-sign-in-box.
+   Found via inspecting the live rendered DOM; not guaranteed stable across
+   Entra updates since it isn't part of the supported selector list. */
+.table-row .table-cell.content > div
+{
+    color: #e9e9ed !important;
+}
+
+.table-row .table-cell.content small
+{
+    color: rgba(233, 233, 237, 0.7) !important;
+}
+
+.ext-error
+{
+    font-size: 12px;
+    color: #ef4444 !important;
+    margin-bottom: 8px;
+}
+
+.ext-input.ext-text-box
+{
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #e9e9ed !important;
+    background: #232532 !important;
+    border: 1px solid rgba(233, 233, 237, 0.16);
+    border-radius: 8px;
+}
+
+/* Chrome/Edge autofill forces its own white background + black text via an
+   internal UA style that background/color can never win against, no matter
+   the specificity or !important — this is the standard workaround (delay
+   the background-color transition long enough that it never visibly
+   kicks in, and repaint the text via -webkit-text-fill-color instead of
+   color). Caused the plain white/black email box seen on the sign-in page. */
+.ext-input.ext-text-box:-webkit-autofill,
+.ext-input.ext-text-box:-webkit-autofill:hover,
+.ext-input.ext-text-box:-webkit-autofill:focus
+{
+    -webkit-text-fill-color: #e9e9ed;
+    -webkit-box-shadow: 0 0 0px 1000px #232532 inset;
+    box-shadow: 0 0 0px 1000px #232532 inset;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+.ext-input.ext-text-box.ext-has-error
+{
+    border-color: #ef4444;
+}
+
+.ext-input.ext-text-box:hover
+{
+    border-color: rgba(233, 233, 237, 0.45);
+}
+
+.ext-input.ext-text-box:focus
+{
+    outline: none;
+    border-color: #9184d9;
+}
+
+.ext-input.ext-text-box:focus:hover
+{
+    outline: none;
+    border-color: #9184d9;
+}
+
+.ext-password-reset-links-container
+{
+    text-align: center;
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+.ext-button-field-container
+{
+    /* !important: Entra's built-in stylesheet appears to take this
+       container out of normal flow (same higher-specificity-built-in-rule
+       problem as .ext-title and the autofill fix above) — invisible on
+       the plain sign-in page (1-2 fields, box stays short), but on the
+       local-account "Add details" attribute collection step (Password,
+       Re-enter password, Given Name, Surname all stacked) the content
+       grows tall enough to run into wherever the buttons are anchored,
+       overlapping the last field instead of sitting below it. Forcing
+       static flow means .ext-sign-in-box (no explicit height) always
+       grows to contain the buttons, regardless of field count. */
+    position: static !important;
+    width: 100%;
+    margin-top: 16px;
+}
+.ext-button-item
+{
+    width: 100%;
+}
+
+.ext-button.ext-primary
+{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 40px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    color: #9184d9;
+    background: transparent;
+    border: 1px solid #9184d9;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.ext-button.ext-primary:hover
+{
+    background: rgba(145, 132, 217, 0.12);
+}
+
+.ext-button.ext-primary:focus
+{
+    outline: 2px solid #9184d9;
+    outline-offset: 2px;
+}
+
+.ext-button.ext-primary:focus:hover
+{
+    background: rgba(145, 132, 217, 0.12);
+    outline: 2px solid #9184d9;
+    outline-offset: 2px;
+}
+
+.ext-button.ext-primary:active
+{
+    background: rgba(145, 132, 217, 0.22);
+}
+
+.ext-button.ext-secondary
+{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 40px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    color: #e9e9ed;
+    background: transparent;
+    border: 1px solid rgba(233, 233, 237, 0.16);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.ext-button.ext-secondary:hover
+{
+    background: rgba(233, 233, 237, 0.07);
+}
+
+.ext-button.ext-secondary:focus
+{
+    outline: 2px solid #9184d9;
+    outline-offset: 2px;
+}
+
+.ext-button.ext-secondary:focus:hover
+{
+    background: rgba(233, 233, 237, 0.07);
+    outline: 2px solid #9184d9;
+    outline-offset: 2px;
+}
+
+.ext-button.ext-secondary:active
+{
+    background: rgba(233, 233, 237, 0.14);
+}
+
+.ext-boilerplate-text
+{
+    font-size: 11px;
+    color: rgba(233, 233, 237, 0.4);
+    text-align: center;
+    margin-top: 12px;
+}
+
+.ext-promoted-fed-cred-box
+{
+    border: 1px solid rgba(233, 233, 237, 0.16);
+    border-radius: 8px;
+    padding: 10px;
+    background: transparent;
+}
+
+.ext-footer
+{
+    background: transparent;
+    padding: 16px;
+    text-align: center;
+    font-size: 12px;
+    color: rgba(233, 233, 237, 0.5);
+}
+
+.ext-footer.ext-has-background
+{
+    background: #161826;
+}
+
+.ext-footer-links
+{
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+}
+
+.ext-footer-content.ext-footer-item
+{
+    color: rgba(233, 233, 237, 0.5);
+}
+
+.ext-footer-content.ext-footer-item:hover
+{
+    color: #9184d9;
+}
+
+.ext-footer-content.ext-footer-item.ext-debug-item
+{
+    font-size: 10px;
+    color: rgba(233, 233, 237, 0.35);
+}

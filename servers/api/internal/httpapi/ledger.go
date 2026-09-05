@@ -412,9 +412,10 @@ func checkInStatus(net decimal.Decimal) string {
 }
 
 // cycleTotals is a ledger's cash position, derived from its stored
-// BankBalance/Income fields plus its associated LedgerBills — mirrors the
-// frontend's computeCycleTotals (clients/web/src/data/selectors.ts) but
-// backed by real rows instead of mock data.
+// BankBalance plus its associated Incomes and LedgerBills. ledger.Income is
+// a stale total from the legacy import, disconnected from which Income rows
+// are actually attached (they can be attached/removed after the fact via
+// the ledger detail page) — sum the real rows instead of trusting it.
 type cycleTotals struct {
 	availableFunds decimal.Decimal
 	paid           decimal.Decimal
@@ -424,7 +425,11 @@ type cycleTotals struct {
 }
 
 func computeCycleTotals(ledger models.Ledger) cycleTotals {
-	availableFunds := ledger.BankBalance.Add(ledger.Income)
+	income := decimal.Zero
+	for _, inc := range ledger.Incomes {
+		income = income.Add(inc.Amount)
+	}
+	availableFunds := ledger.BankBalance.Add(income)
 	var paid, planned decimal.Decimal
 	unpaidCount := 0
 	for _, lb := range ledger.LedgerBills {
@@ -469,6 +474,7 @@ func currentLedgerHandler(db *gorm.DB) http.HandlerFunc {
 
 		var ledger models.Ledger
 		err := db.Where("user_id = ?", principal.UserID).
+			Preload("Incomes").
 			Preload("LedgerBills").
 			Order("date DESC").
 			First(&ledger).Error
@@ -522,6 +528,7 @@ func ledgerHistoryHandler(db *gorm.DB) http.HandlerFunc {
 
 		var ledgers []models.Ledger
 		err := db.Where("user_id = ?", principal.UserID).
+			Preload("Incomes").
 			Preload("LedgerBills").
 			Order("date DESC").
 			Limit(limit).
