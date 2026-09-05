@@ -22,6 +22,22 @@ resource "azuread_application" "spa" {
     redirect_uris = var.redirect_uris
   }
 
+  # given_name/family_name aren't in this tenant's default
+  # claims_supported (confirmed against the real discovery document), but
+  # that only reflects what's returned via scopes -- optional_claims is a
+  # separate mechanism (see api-registration's email optional claim for
+  # why: it needed this same treatment to show up in the access token).
+  # Worth trying explicitly rather than assuming claims_supported is
+  # exhaustive for what optional_claims can add.
+  optional_claims {
+    id_token {
+      name = "given_name"
+    }
+    id_token {
+      name = "family_name"
+    }
+  }
+
   required_resource_access {
     resource_app_id = var.api_client_id
 

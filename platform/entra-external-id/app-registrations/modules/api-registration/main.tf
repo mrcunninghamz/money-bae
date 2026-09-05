@@ -36,6 +36,18 @@ resource "azuread_application" "api" {
       user_consent_display_name  = "Access ${var.display_name}"
     }
   }
+
+  # Access tokens for a custom API scope carry a minimal claim set by
+  # default -- no email, regardless of which scopes the client requested
+  # (openid/profile/email mainly affect the ID token, not this). email is
+  # a built-in optional claim in CIAM, so no `source` here -- `source =
+  # "user"` is only for custom extension properties, and is a documented
+  # way to silently break this (the claim just doesn't show up).
+  optional_claims {
+    access_token {
+      name = "email"
+    }
+  }
 }
 
 resource "azuread_service_principal" "api" {
