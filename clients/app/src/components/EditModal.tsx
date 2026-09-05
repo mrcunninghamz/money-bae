@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { Mascot } from '#/components/Mascot'
 import type {
   BillInput,
@@ -39,7 +40,12 @@ export function EditModal() {
     isAutoPay: false,
     notes: '',
   })
-  const [ledgerForm, setLedgerForm] = useState({ date: '', name: '' })
+  const [ledgerForm, setLedgerForm] = useState({
+    date: '',
+    name: '',
+    bankBalance: '',
+    notes: '',
+  })
   const [ledgerBillForm, setLedgerBillForm] = useState({
     billId: '',
     amount: '',
@@ -69,6 +75,7 @@ export function EditModal() {
 
   useEffect(() => {
     if (store.modal !== 'income') return
+    void store.ensureLedgers() // so an assigned income can link to its ledger by name
     const existing =
       store.modalMode === 'Edit'
         ? store.income.find((i) => i.id === store.incomeSelected)
@@ -80,7 +87,11 @@ export function EditModal() {
             amount: moneyToNumber(existing.amount).toFixed(2),
             notes: existing.notes ?? '',
           }
-        : { date: '', amount: '', notes: '' },
+        : {
+            date: formatDateMMDDYYYY(new Date().toISOString()),
+            amount: '',
+            notes: '',
+          },
     )
   }, [store.modal, store.modalMode, store.incomeSelected, store.income])
 
@@ -111,8 +122,13 @@ export function EditModal() {
         : undefined
     setLedgerForm(
       existing
-        ? { date: formatDateMMDDYYYY(existing.date), name: existing.name ?? '' }
-        : { date: '', name: '' },
+        ? {
+            date: formatDateMMDDYYYY(existing.date),
+            name: existing.name ?? '',
+            bankBalance: moneyToNumber(existing.bankBalance).toFixed(2),
+            notes: existing.notes ?? '',
+          }
+        : { date: '', name: '', bankBalance: '', notes: '' },
     )
   }, [store.modal, store.modalMode, store.ledgerSelected, store.ledgers])
 
@@ -194,16 +210,31 @@ export function EditModal() {
     )
   }, [store.modal, store.modalMode, store.selectedHoliday])
 
+  const editingIncome =
+    store.modal === 'income' && store.modalMode === 'Edit'
+      ? store.income.find((i) => i.id === store.incomeSelected)
+      : undefined
+  const editingIncomeLedger = editingIncome?.ledgerId
+    ? store.ledgers.find((l) => l.id === editingIncome.ledgerId)
+    : undefined
+
   if (!store.modal) return null
 
   const title = `${store.modalMode} ${MODAL_NOUN[store.modal]}`
 
   async function handleSave() {
     if (store.modal === 'income') {
+      const existingIncome =
+        store.modalMode === 'Edit'
+          ? store.income.find((i) => i.id === store.incomeSelected)
+          : undefined
       const input: IncomeInput = {
         date: parseDateMMDDYYYY(incomeForm.date),
         amount: numberToMoney(Number(incomeForm.amount) || 0),
-        ledgerId: null,
+        ledgerId:
+          store.modalMode === 'Add'
+            ? store.activeLedgerId
+            : (existingIncome?.ledgerId ?? null),
         notes: incomeForm.notes || null,
       }
       const ok =
@@ -225,9 +256,23 @@ export function EditModal() {
           : await store.editBillEntry(input)
       if (!ok) return
     } else if (store.modal === 'ledger') {
+      // income/expenses/net/total aren't editable here (the ledger detail
+      // page computes them live from attached incomes/bills) — pass the
+      // existing values straight through so saving date/name/bankBalance/
+      // notes doesn't wipe them via the API's full-overwrite PUT.
+      const existingLedger =
+        store.modalMode === 'Edit'
+          ? store.ledgers.find((l) => l.id === store.ledgerSelected)
+          : undefined
       const input: LedgerInput = {
         date: parseDateMMDDYYYY(ledgerForm.date),
         name: ledgerForm.name || null,
+        bankBalance: numberToMoney(Number(ledgerForm.bankBalance) || 0),
+        income: existingLedger?.income,
+        expenses: existingLedger?.expenses,
+        net: existingLedger?.net,
+        total: existingLedger?.total,
+        notes: ledgerForm.notes || null,
       }
       const ok =
         store.modalMode === 'Add'
@@ -412,6 +457,21 @@ export function EditModal() {
                 placeholder="overtime, bonus, …"
               />
             </div>
+            {editingIncomeLedger && (
+              <div className="field">
+                <label>Ledger</label>
+                <Link
+                  className="mono"
+                  to="/ledger/$periodId"
+                  params={{ periodId: editingIncomeLedger.id }}
+                  onClick={store.closeModal}
+                  style={{ color: '#9184d9' }}
+                >
+                  {editingIncomeLedger.name ??
+                    formatDateMMDDYYYY(editingIncomeLedger.date)}
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
@@ -437,6 +497,33 @@ export function EditModal() {
                   setLedgerForm((f) => ({ ...f, name: e.target.value }))
                 }
                 placeholder="December P1"
+              />
+            </div>
+            <div className="field">
+              <label>Bank balance</label>
+              <input
+                className="input mono"
+                type="number"
+                step="0.01"
+                value={ledgerForm.bankBalance}
+                onChange={(e) =>
+                  setLedgerForm((f) => ({
+                    ...f,
+                    bankBalance: e.target.value,
+                  }))
+                }
+                placeholder="1842.60"
+              />
+            </div>
+            <div className="field">
+              <label>Notes</label>
+              <input
+                className="input"
+                value={ledgerForm.notes}
+                onChange={(e) =>
+                  setLedgerForm((f) => ({ ...f, notes: e.target.value }))
+                }
+                placeholder="…"
               />
             </div>
           </div>

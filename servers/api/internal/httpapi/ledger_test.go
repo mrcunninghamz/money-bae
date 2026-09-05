@@ -465,10 +465,14 @@ func TestCurrentLedger_ComputesTotals(t *testing.T) {
 
 	ledger := models.Ledger{
 		UserID: user.ID, Date: time.Now(),
-		BankBalance: decimal.NewFromInt(1000), Income: decimal.NewFromInt(500), Expenses: decimal.Zero,
+		BankBalance: decimal.NewFromInt(1000), Expenses: decimal.Zero,
 	}
 	if err := db.Create(&ledger).Error; err != nil {
 		t.Fatalf("failed to seed ledger: %v", err)
+	}
+	income := models.Income{UserID: user.ID, Date: time.Now(), Amount: decimal.NewFromInt(500), LedgerID: &ledger.ID}
+	if err := db.Create(&income).Error; err != nil {
+		t.Fatalf("failed to seed income: %v", err)
 	}
 	seedLedgerBill(t, db, user.ID, ledger.ID, decimal.NewFromInt(200), true)
 	seedLedgerBill(t, db, user.ID, ledger.ID, decimal.NewFromInt(300), false)

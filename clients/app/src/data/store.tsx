@@ -120,6 +120,10 @@ interface AppStore {
   editIncomeEntry: (input: IncomeInput) => Promise<boolean>
   deleteIncomeEntries: (ids: string[]) => Promise<void>
   duplicateIncomeEntry: (id: string) => Promise<void>
+  attachIncomesToLedger: (
+    ledgerId: string | null,
+    ids: string[],
+  ) => Promise<void>
   showToast: (kind: ToastKind, text: string) => void
   dismissToast: (id: string) => void
   requestDelete: (count: number, onConfirm: () => void) => void
@@ -519,7 +523,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         const created = await createIncome({
           date: original.date,
           amount: original.amount,
-          ledgerId: original.ledgerId,
+          ledgerId: null,
           notes: original.notes,
         })
         setIncome((prev) => [created, ...prev])
@@ -527,6 +531,39 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error('failed to duplicate income', err)
         showToast('error', "couldn't duplicate — try again")
+      }
+    },
+    attachIncomesToLedger: async (ledgerId, ids) => {
+      if (ids.length === 0) return
+      try {
+        const updated = await Promise.all(
+          ids.map((id) => {
+            const original = income.find((i) => i.id === id)
+            if (!original) throw new Error(`income ${id} not found`)
+            return apiUpdateIncome(id, {
+              date: original.date,
+              amount: original.amount,
+              ledgerId,
+              notes: original.notes,
+            })
+          }),
+        )
+        setIncome((prev) =>
+          prev.map((i) => updated.find((u) => u.id === i.id) ?? i),
+        )
+        showToast(
+          'info',
+          ledgerId
+            ? ids.length === 1
+              ? 'attached that income entry'
+              : `attached ${ids.length} income entries`
+            : ids.length === 1
+              ? 'removed that income from the ledger'
+              : `removed ${ids.length} incomes from the ledger`,
+        )
+      } catch (err) {
+        console.error('failed to attach income to ledger', err)
+        showToast('error', "couldn't save that — try again")
       }
     },
     showToast,
