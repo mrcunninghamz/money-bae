@@ -21,11 +21,12 @@ const msalConfig: Configuration = {
       import.meta.env.VITE_MSAL_CLIENT_ID ??
       'e92e517b-d90a-485d-8b2f-5d6bae83d3ee',
     authority: TENANT_AUTHORITY,
-    // Without this, MSAL defaults to window.location.href at the moment
-    // the app loads — whatever page the user happened to be on (e.g.
-    // /login) — which only matches the registered redirect URI (the site
-    // root, with trailing slash) by accident.
-    redirectUri: `${window.location.origin}/`,
+    // Must exactly match a redirect URI registered on this app in Entra —
+    // a constant, not derived from window.location (which defaults to
+    // whatever page the user happened to be on, e.g. /login, when MSAL
+    // defaults this). Override with VITE_REDIRECT_URI for a real deploy
+    // build, matching VITE_MSAL_CLIENT_ID/VITE_API_SCOPE/VITE_API_BASE_URL.
+    redirectUri: import.meta.env.VITE_REDIRECT_URI ?? 'http://localhost:3000/',
   },
   cache: {
     // Persists the session across page reloads/tabs, same as the
