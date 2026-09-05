@@ -21,6 +21,11 @@ const msalConfig: Configuration = {
       import.meta.env.VITE_MSAL_CLIENT_ID ??
       'e92e517b-d90a-485d-8b2f-5d6bae83d3ee',
     authority: TENANT_AUTHORITY,
+    // Without this, MSAL defaults to window.location.href at the moment
+    // the app loads — whatever page the user happened to be on (e.g.
+    // /login) — which only matches the registered redirect URI (the site
+    // root, with trailing slash) by accident.
+    redirectUri: `${window.location.origin}/`,
   },
   cache: {
     // Persists the session across page reloads/tabs, same as the
