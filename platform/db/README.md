@@ -1,6 +1,10 @@
-# Money-Bae - Terraform Infrastructure
+# platform/db — Terraform Infrastructure
 
-Terraform configuration for deploying Money-Bae core infrastructure on Azure.
+Terraform configuration for a shared Azure PostgreSQL Flexible Server. This
+is `kkb`-org-level shared dev infrastructure, not exclusive to money-bae —
+the server may host other `kkb`-org databases in the future, the way
+`platform/entra-external-id`'s CIAM tenant is shared company-level identity
+infrastructure rather than a money-bae-only resource.
 
 ## Architecture
 
@@ -15,10 +19,13 @@ This Terraform manages real Azure resources with real remote state. Never
 run `terraform apply` or `terraform destroy` without first reviewing the
 `terraform plan` output carefully — this is not a sandbox.
 
-`zone = "1"` on the PostgreSQL server is pinned to match the live server's
-actual current availability zone (Azure auto-assigned it at creation, before
-this config tracked it) — without this, `terraform plan` would show an
-unrelated in-place update clearing it on every apply.
+`zone = "1"` in `modules/postgresql/main.tf` is now a deliberate choice for
+the fresh server this migration creates (not a reconciliation of an
+existing resource, as it was for the old server) — availability-zone
+offerings are per-subscription-per-region, so if `terraform apply` fails
+because zone 1 isn't offered for this SKU in the new subscription, try a
+different zone value or remove the `zone` argument entirely to let Azure
+auto-assign one.
 
 ## Prerequisites
 
@@ -27,6 +34,9 @@ unrelated in-place update clearing it on every apply.
 - Azure subscription with permissions to create resources
 - Remote state storage account (already provisioned: `stkkbtfstatecus`,
   the same kkb-org company-level backend used by `platform/entra-external-id`)
+- That state backend is provisioned by `platform/entra-external-id`'s own
+  setup (issue #57) — that setup must already exist before this project's
+  `terraform init` can succeed
 - `TF_VAR_money_bae_db_admin_password` set in your environment before running `plan`/`apply` — see below. Never pass it as a `-var` flag or write it into any file (including `.tfvars`); the admin login (`money_bae_db_admin_login`) is set in `environments/dev.cus.tfvars` — it's still marked `sensitive` in Terraform (so it stays out of plan/apply console output), even though it's a non-secret username value that's fine to commit.
 
 ### Setting the admin password

@@ -511,6 +511,14 @@ whoever is at the keyboard) to work through manually, at your own pace,
 after Tasks 1–7 above are merged. Each step includes the exact command;
 review the output before moving to the next step.
 
+> **Merge-order dependency on #57:** This runbook requires issue #57
+> (`platform/entra-external-id`) to already be merged to `main` **and**
+> its own runbook already executed — #57's runbook is what actually
+> provisions the state backend (`stkkbtfstatecus`/`rg-kkbae-tfstate-shared`)
+> that step A below initializes against. If #57 hasn't been merged and run
+> yet, step A's `terraform init` will fail because that backend doesn't
+> exist yet.
+
 ### A. Initialize Terraform against the new backend key
 
 ```bash
@@ -550,6 +558,12 @@ terraform apply -var-file="environments/dev.cus.tfvars"
 
 Only after reviewing and being satisfied with the plan from step B.
 
+> **If apply fails on the `zone` argument:** availability-zone offerings
+> are per-subscription-per-region, so zone `1` (pinned in
+> `modules/postgresql/main.tf`) might not be offered for this SKU in the
+> new subscription/region. If so, try a different zone value or remove
+> the `zone` argument entirely to let Azure auto-assign one.
+
 ### D. Copy `money_bae` (tui data) from the old server to the new one
 
 ```bash
@@ -567,7 +581,10 @@ Get `<new-server-money_bae-connection-string>` from
 ```bash
 cd servers/api
 export SOURCE_DATABASE_URL="<new-server-money_bae-connection-string>"   # same one used in step D, now populated
-# Point DATABASE_URL at the NEW server's money_bae_api (edit .env.dev to the new host first, matching step F below), then:
+# Edit servers/api/.env.dev's DATABASE_URL to the new server's money_bae_api
+# connection string (from the same `terraform output -raw
+# postgresql_connection_strings` map used in step D, keyed by
+# "money_bae_api" this time), then:
 ./use-dev-env.sh
 go run ./cmd/import-legacy-data
 ```
@@ -582,9 +599,8 @@ has no data beyond what the original importer run produced.
 - **tui**: edit `~/.config/money-bae/money-bae.toml`'s
   `database_connection_string`, and `tui/.env.prod`'s `DATABASE_URL`, to
   the new server's `money_bae` connection string.
-- **servers/api**: edit local `servers/api/.env.dev`'s `DATABASE_URL` to
-  the new server's `money_bae_api` connection string (needed before step
-  E above, if not already done).
+- **servers/api**: `.env.dev`'s `DATABASE_URL` was already edited to the
+  new server's `money_bae_api` connection string in step E above.
 - **platform/api** (App Runner): check whether the Secrets Manager secret
   `money-bae-api/database-url` exists yet:
 

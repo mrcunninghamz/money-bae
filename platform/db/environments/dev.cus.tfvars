@@ -8,7 +8,7 @@ money_bae_db_admin_login = "mbae"
 
 tags = {
   Environment = "dev"
-  Application = "MoneyBae"
+  Application = "kkb-shared-db"
   Component   = "Core"
   ManagedBy   = "Terraform"
 }
