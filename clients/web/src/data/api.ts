@@ -1,13 +1,9 @@
 import { USD, dinero, toDecimal, toSnapshot } from 'dinero.js'
 import type { Dinero } from 'dinero.js'
+import { getAccessToken } from '#/auth/msalConfig'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
-
-// MockVerifier (server-side) ignores this value entirely and always
-// authenticates as the seed user — swap for a real bearer token once an
-// IdP is wired in.
-const AUTH_TOKEN = 'mock-token'
 
 export type Money = Dinero<number>
 
@@ -110,10 +106,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function requestOnce<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = await getAccessToken()
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${AUTH_TOKEN}`,
+      Authorization: `Bearer ${token}`,
       ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
       ...init?.headers,
     },

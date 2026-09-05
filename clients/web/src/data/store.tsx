@@ -1,5 +1,7 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useMsal } from '@azure/msal-react'
+import { loginRequest } from '#/auth/msalConfig'
 import {
   createBill,
   createHolidayHour,
@@ -44,8 +46,6 @@ import type {
   PtoPlanInput,
 } from '#/data/api'
 
-const AUTH_STORAGE_KEY = 'money-bae:authed'
-
 type ModalKind =
   | 'bill'
   | 'income'
@@ -74,6 +74,7 @@ export interface PendingDelete {
 
 interface AppStore {
   authed: boolean
+  email: string | null
   accountOpen: boolean
   bills: Bill[]
   billSelected: string | null
@@ -154,13 +155,16 @@ interface AppStore {
 
 const AppStoreContext = createContext<AppStore | null>(null)
 
-function readInitialAuth(): boolean {
-  if (typeof window === 'undefined') return false
-  return window.localStorage.getItem(AUTH_STORAGE_KEY) === 'true'
-}
-
 export function AppStoreProvider({ children }: { children: ReactNode }) {
-  const [authed, setAuthed] = useState(readInitialAuth)
+  const { instance, accounts } = useMsal()
+  // tsconfig doesn't set noUncheckedIndexedAccess, so TS types accounts[0]
+  // as always-defined — the null checks below are still needed at runtime
+  // for the empty-array case (signed out).
+  const account = accounts[0] ?? null
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  const authed = account !== null
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  const email = account?.username ?? null
   const [accountOpen, setAccountOpen] = useState(false)
   const [bills, setBills] = useState<Bill[]>([])
   const [billSelected, setBillSelected] = useState<string | null>(null)
@@ -211,10 +215,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   function cancelDelete() {
     setPendingDelete(null)
   }
-
-  useEffect(() => {
-    window.localStorage.setItem(AUTH_STORAGE_KEY, String(authed))
-  }, [authed])
 
   // Each list loads lazily, the first time a route that actually needs it
   // calls ensureX — not eagerly for the whole app on mount. The ref-cached
@@ -280,6 +280,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const store: AppStore = {
     authed,
+    email,
     accountOpen,
     bills,
     billSelected,
@@ -302,11 +303,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     ensureBills,
     ensureLedgers,
     ensurePtos,
-    signIn: () => setAuthed(true),
+    signIn: () => void instance.loginRedirect(loginRequest),
     signOut: () => {
-      setAuthed(false)
       setAccountOpen(false)
       setModal(null)
+      void instance.logoutRedirect()
     },
     toggleAccountMenu: () => setAccountOpen((open) => !open),
     selectBill: (id) => setBillSelected(id),

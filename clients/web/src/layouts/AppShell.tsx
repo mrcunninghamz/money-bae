@@ -184,13 +184,7 @@ export function AppShell() {
               style={{ lineHeight: 1.25 }}
             >
               <span className="mono" style={{ fontSize: 12.5 }}>
-                tj
-              </span>
-              <span
-                className="mono"
-                style={{ fontSize: 10, color: 'rgba(233,233,237,.45)' }}
-              >
-                tj@money.bae
+                {store.email}
               </span>
             </span>
           </button>
