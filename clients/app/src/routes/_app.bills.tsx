@@ -67,9 +67,14 @@ function BillsPage() {
                 <th style={{ paddingLeft: 16, width: 36 }} />
                 <th>Name</th>
                 <th style={{ textAlign: 'right' }}>Amount</th>
-                <th>Due day</th>
-                <th>Auto pay</th>
-                <th style={{ paddingRight: 16 }}>Notes</th>
+                <th className="hidden sm:table-cell">Due day</th>
+                <th className="hidden sm:table-cell">Auto pay</th>
+                <th
+                  className="hidden sm:table-cell"
+                  style={{ paddingRight: 16 }}
+                >
+                  Notes
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -98,12 +103,12 @@ function BillsPage() {
                     {formatCurrency(moneyToNumber(bill.amount))}
                   </td>
                   <td
-                    className="mono"
+                    className="mono hidden sm:table-cell"
                     style={{ color: 'rgba(233,233,237,.6)' }}
                   >
                     {bill.dueDay ?? '—'}
                   </td>
-                  <td>
+                  <td className="hidden sm:table-cell">
                     <span
                       className={`tag mono ${bill.isAutoPay ? 'tag-accent' : 'tag-neutral'}`}
                     >
@@ -111,6 +116,7 @@ function BillsPage() {
                     </span>
                   </td>
                   <td
+                    className="hidden sm:table-cell"
                     style={{
                       paddingRight: 16,
                       color: 'rgba(233,233,237,.45)',

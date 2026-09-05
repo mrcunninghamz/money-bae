@@ -16,10 +16,9 @@ function SettingsPage() {
     <>
       <PageHeader kicker="configuration" title="Settings" />
       <div
-        className="grid min-w-0 flex-1 items-start gap-[18px]"
+        className="grid min-w-0 flex-1 grid-cols-1 content-start items-start gap-[18px] lg:grid-cols-2"
         style={{
           padding: '20px 24px 8px',
-          gridTemplateColumns: '1fr 1fr',
           maxWidth: 1000,
         }}
       >
@@ -28,12 +27,12 @@ function SettingsPage() {
           style={{ background: '#1b1d2e', padding: '18px 20px', gap: 14 }}
         >
           <span className="card-kicker mono">payday cycle</span>
-          <div className="flex gap-[11px]">
-            <div className="field flex-1">
+          <div className="flex flex-col gap-[11px] sm:flex-row">
+            <div className="field sm:flex-1">
               <label>First payday (anchor)</label>
               <input className="input mono" defaultValue="14/11/2025" />
             </div>
-            <div className="field" style={{ width: 132 }}>
+            <div className="field sm:w-[132px]">
               <label>Deposit day</label>
               <input className="input mono" defaultValue="Friday" />
             </div>
@@ -121,12 +120,12 @@ function SettingsPage() {
             className="h-px"
             style={{ background: 'rgba(233,233,237,.1)' }}
           />
-          <div className="flex gap-[11px]">
-            <div className="field flex-1">
+          <div className="flex flex-col gap-[11px] sm:flex-row">
+            <div className="field sm:flex-1">
               <label>Opening bank balance</label>
               <input className="input mono" defaultValue="$3,412.80" />
             </div>
-            <div className="field" style={{ width: 120 }}>
+            <div className="field sm:w-[120px]">
               <label>Buffer to keep</label>
               <input className="input mono" defaultValue="$250.00" />
             </div>
@@ -138,12 +137,12 @@ function SettingsPage() {
           style={{ background: '#1b1d2e', padding: '18px 20px', gap: 14 }}
         >
           <span className="card-kicker mono">pto defaults</span>
-          <div className="flex gap-[11px]">
-            <div className="field flex-1">
+          <div className="flex flex-col gap-[11px] sm:flex-row">
+            <div className="field sm:flex-1">
               <label>Hours available per year</label>
               <input className="input mono" defaultValue="200.00" />
             </div>
-            <div className="field" style={{ width: 120 }}>
+            <div className="field sm:w-[120px]">
               <label>Holiday default</label>
               <input className="input mono" defaultValue="8.00" />
             </div>
@@ -200,21 +199,23 @@ function SettingsPage() {
             className="h-px"
             style={{ background: 'rgba(233,233,237,.1)' }}
           />
-          <div className="flex items-center gap-[11px]">
-            <AccountAvatar size={40} />
-            <div className="flex-1">
-              <div className="mono" style={{ fontSize: 13 }}>
-                tj@money.bae
-              </div>
-              <div
-                className="mono"
-                style={{ fontSize: 11, color: 'rgba(233,233,237,.45)' }}
-              >
-                signed in on this machine
+          <div className="flex flex-col items-start gap-[11px] sm:flex-row sm:items-center">
+            <div className="flex items-center gap-[11px]">
+              <AccountAvatar size={40} />
+              <div>
+                <div className="mono" style={{ fontSize: 13 }}>
+                  tj@money.bae
+                </div>
+                <div
+                  className="mono"
+                  style={{ fontSize: 11, color: 'rgba(233,233,237,.45)' }}
+                >
+                  signed in on this machine
+                </div>
               </div>
             </div>
             <button
-              className="btn btn-primary mono"
+              className="btn btn-primary mono sm:ml-auto"
               style={{ fontSize: 12 }}
               onClick={store.signOut}
             >

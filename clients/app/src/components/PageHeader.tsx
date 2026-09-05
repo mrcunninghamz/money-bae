@@ -10,7 +10,7 @@ export function PageHeader({ kicker, title, actions }: PageHeaderProps) {
   return (
     <>
       <header
-        className="flex items-end gap-[14px]"
+        className="flex flex-col items-start gap-[10px] sm:flex-row sm:items-end sm:gap-[14px]"
         style={{ padding: '18px 24px 14px' }}
       >
         <div>
@@ -27,7 +27,9 @@ export function PageHeader({ kicker, title, actions }: PageHeaderProps) {
           </div>
           <h3 style={{ margin: '3px 0 0' }}>{title}</h3>
         </div>
-        {actions && <div className="ml-auto flex gap-[8px]">{actions}</div>}
+        {actions && (
+          <div className="flex flex-wrap gap-[8px] sm:ml-auto">{actions}</div>
+        )}
       </header>
       <div
         className="h-px"

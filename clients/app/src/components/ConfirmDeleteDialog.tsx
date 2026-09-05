@@ -15,7 +15,7 @@ export function ConfirmDeleteDialog() {
     >
       <div
         className="dialog elev-lg relative"
-        style={{ background: '#1b1d2e', width: 360 }}
+        style={{ background: '#1b1d2e', width: 'min(360px, 100%)' }}
       >
         <div
           className="absolute -top-[30px] right-[14px]"

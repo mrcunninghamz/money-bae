@@ -42,6 +42,7 @@ const BODY_CELL_STYLE = [
 ]
 
 const MONO_COLUMN_INDEXES = new Set([1, 2])
+const HIDDEN_SM_INDEXES = new Set([3])
 
 function IncomePage() {
   const store = useAppStore()
@@ -145,7 +146,15 @@ function IncomePage() {
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header, i) => (
-                    <th key={header.id} style={HEADER_CELL_STYLE[i]}>
+                    <th
+                      key={header.id}
+                      className={
+                        HIDDEN_SM_INDEXES.has(i)
+                          ? 'hidden sm:table-cell'
+                          : undefined
+                      }
+                      style={HEADER_CELL_STYLE[i]}
+                    >
                       {header.isPlaceholder ? null : (
                         <table.FlexRender header={header} />
                       )}
@@ -164,9 +173,12 @@ function IncomePage() {
                   {row.getAllCells().map((cell, i) => (
                     <td
                       key={cell.id}
-                      className={
-                        MONO_COLUMN_INDEXES.has(i) ? 'mono' : undefined
-                      }
+                      className={[
+                        MONO_COLUMN_INDEXES.has(i) ? 'mono' : '',
+                        HIDDEN_SM_INDEXES.has(i) ? 'hidden sm:table-cell' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                       style={BODY_CELL_STYLE[i]}
                     >
                       <table.FlexRender cell={cell} />

@@ -66,9 +66,24 @@ function PtoYearsPage() {
               <tr>
                 <th style={{ paddingLeft: 16, width: 36 }} />
                 <th>Year</th>
-                <th style={{ textAlign: 'right' }}>Available</th>
-                <th style={{ textAlign: 'right' }}>Planned</th>
-                <th style={{ textAlign: 'right' }}>Used</th>
+                <th
+                  className="hidden sm:table-cell"
+                  style={{ textAlign: 'right' }}
+                >
+                  Available
+                </th>
+                <th
+                  className="hidden sm:table-cell"
+                  style={{ textAlign: 'right' }}
+                >
+                  Planned
+                </th>
+                <th
+                  className="hidden sm:table-cell"
+                  style={{ textAlign: 'right' }}
+                >
+                  Used
+                </th>
                 <th style={{ textAlign: 'right', paddingRight: 16 }}>
                   Remaining
                 </th>
@@ -99,7 +114,7 @@ function PtoYearsPage() {
                   </td>
                   <td className="mono">{pto.year}</td>
                   <td
-                    className="mono"
+                    className="mono hidden sm:table-cell"
                     style={{
                       textAlign: 'right',
                       color: 'rgba(233,233,237,.7)',
@@ -108,7 +123,7 @@ function PtoYearsPage() {
                     {formatHours(Number(pto.availableHours))}
                   </td>
                   <td
-                    className="mono"
+                    className="mono hidden sm:table-cell"
                     style={{
                       textAlign: 'right',
                       color: 'rgba(233,233,237,.7)',
@@ -117,7 +132,7 @@ function PtoYearsPage() {
                     {formatHours(Number(pto.hoursPlanned))}
                   </td>
                   <td
-                    className="mono"
+                    className="mono hidden sm:table-cell"
                     style={{
                       textAlign: 'right',
                       color: 'rgba(233,233,237,.7)',
