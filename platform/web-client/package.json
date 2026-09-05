@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "build:client": "npm run build --prefix ../../clients/web",
+    "build:client": "npm run build --prefix ../../clients/app",
     "deploy": "npm run build:client && cdk deploy",
     "cdk": "cdk"
   },

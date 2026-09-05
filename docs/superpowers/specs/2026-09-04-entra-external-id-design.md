@@ -4,7 +4,7 @@
 
 money-bae has no real identity provider yet: `servers/api/internal/auth`
 defines `OIDCVerifier` but it's unused (`MockVerifier` is wired in, per
-`servers/api/CLAUDE.md`), and `clients/web` has a `login.tsx` route with no
+`servers/api/CLAUDE.md`), and `clients/app` has a `login.tsx` route with no
 OAuth wiring. This pass provisions the identity infrastructure — a
 Microsoft Entra External ID (CIAM) tenant plus the app registrations
 needed for a SPA + API OAuth flow — as Terraform, following the patterns
@@ -31,7 +31,7 @@ Deferred / out of scope (see "Deferred" section):
 - Provisioning the CIAM user flow (sign-up/sign-in experience).
 - Configuring identity providers — local-account policy, and social
   logins (Google, Facebook, Apple).
-- Wiring `clients/web` or `servers/api` to actually use the new IdP
+- Wiring `clients/app` or `servers/api` to actually use the new IdP
   (MSAL integration, switching `OIDC_ISSUER_URL`/`OIDC_AUDIENCE`,
   swapping `MockVerifier` for `OIDCVerifier`).
 - A custom domain for the web client (dev redirect URI uses the raw
@@ -225,7 +225,7 @@ the Postman collection (see below) can obtain real tokens without a
 second app registration.
 
 Redirect URIs (root `variables.tf`, `local_redirect_uri`/`dev_redirect_uri`):
-- `local` → `http://localhost:3000` (matches `clients/web`'s `npm run dev`
+- `local` → `http://localhost:3000` (matches `clients/app`'s `npm run dev`
   port per its `CLAUDE.md`).
 - `dev` → the web client's CloudFront domain, hardcoded once known.
   `platform/web-client`'s distribution has no custom domain today — its
@@ -247,7 +247,7 @@ Redirect URIs (root `variables.tf`, `local_redirect_uri`/`dev_redirect_uri`):
   right mechanism for both (direct Graph API calls, a generic
   Graph-wrapping Terraform provider, or accepting manual Portal steps)
   before attempting either as code.
-- Wiring `clients/web`/`servers/api` to the new IdP is a separate,
+- Wiring `clients/app`/`servers/api` to the new IdP is a separate,
   later piece of work. When that happens, revisit whether `spa-registration`
   needs an explicit Microsoft Graph `openid`/`offline_access` permission
   grant (MSAL typically wants these for ID/refresh tokens) — a reference
