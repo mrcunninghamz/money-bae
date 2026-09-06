@@ -408,8 +408,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           bankBalance: original.bankBalance,
           income: original.income,
           expenses: original.expenses,
-          net: original.net,
-          total: original.total,
           notes: original.notes,
         })
         setLedgers((prev) => [created, ...prev])

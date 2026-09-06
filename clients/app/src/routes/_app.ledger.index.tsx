@@ -67,7 +67,7 @@ function LedgerListPage() {
               <tr>
                 <th style={{ paddingLeft: 16, width: 36 }} />
                 <th>Date</th>
-                <th className="hidden sm:table-cell">Name</th>
+                <th>Name</th>
                 <th
                   className="hidden sm:table-cell"
                   style={{ textAlign: 'right' }}
@@ -112,7 +112,9 @@ function LedgerListPage() {
                   >
                     {formatDateMMDDYYYY(row.date)}
                   </td>
-                  <td className="hidden sm:table-cell">{row.name ?? '—'}</td>
+                  <td className="max-w-[120px] truncate sm:max-w-none">
+                    {row.name ?? '—'}
+                  </td>
                   <td
                     className="mono hidden sm:table-cell"
                     style={{ textAlign: 'right' }}

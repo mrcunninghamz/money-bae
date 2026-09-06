@@ -260,10 +260,12 @@ export function EditModal() {
           : await store.editBillEntry(input)
       if (!ok) return
     } else if (store.modal === 'ledger') {
-      // income/expenses/net/total aren't editable here (the ledger detail
-      // page computes them live from attached incomes/bills) — pass the
-      // existing values straight through so saving date/name/bankBalance/
-      // notes doesn't wipe them via the API's full-overwrite PUT.
+      // income/expenses aren't editable here (the ledger detail page
+      // computes them live from attached incomes/bills) — pass the existing
+      // values straight through so saving date/name/bankBalance/notes
+      // doesn't wipe them via the API's full-overwrite PUT. net/total are
+      // entirely server-computed now (see servers/api's resolveNet/
+      // resolveTotal), so there's nothing to pass through for those.
       const existingLedger =
         store.modalMode === 'Edit'
           ? store.ledgers.find((l) => l.id === store.ledgerSelected)
@@ -274,8 +276,6 @@ export function EditModal() {
         bankBalance: numberToMoney(Number(ledgerForm.bankBalance) || 0),
         income: existingLedger?.income,
         expenses: existingLedger?.expenses,
-        net: existingLedger?.net,
-        total: existingLedger?.total,
         notes: ledgerForm.notes || null,
       }
       const ok =
