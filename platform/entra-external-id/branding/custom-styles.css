@@ -1,11 +1,24 @@
-/* Entra External ID (CIAM) custom page CSS, restyled to match the
-   money-bae web client's "Nocturne" design system — see
-   clients/app/src/styles/{tokens,components}.css and the rendered look of
-   clients/app/src/routes/login.tsx. Upload via Company Branding > Sign-in
-   pages in the Entra portal (no Terraform resource for this yet, see
-   platform/entra-external-id/CLAUDE.md). Custom fonts via @font-face
-   aren't supported here, so headings/body fall back to a system stack
-   that approximates Inter instead of loading it. */
+/* Entra External ID (CIAM) custom page CSS. The page background matches
+   money-bae's "Nocturne" design system (dark, same as the SPA's own login
+   page — clients/app/src/routes/login.tsx), but .ext-sign-in-box itself
+   is light. Nocturne has no light variant of its own (dark-only today, see
+   clients/app/src/styles/tokens.css) — the box's colors below are derived
+   from its neutral/accent tonal ramps, just oriented for a light surface.
+
+   Why the box specifically is light: a lot of what renders inside it is
+   Microsoft's own undocumented markup with no .ext-* hook to target (the
+   "Pick an account" tile list, the KMSI "Stay signed in?" page's
+   .text-title/.text-body, the identity banner's div.identityBanner —
+   confirmed via live DOM inspection and by another tenant hitting the
+   same gaps: https://learn.microsoft.com/en-us/answers/questions/2104221).
+   All of it renders in Microsoft's own default text color, which assumes
+   a light background — chasing each one individually was unreliable, so
+   the box is light and that default just works. The page itself has none
+   of this undocumented markup, so it stays dark to match the product.
+   Selector set below is otherwise unchanged from Microsoft's official
+   template
+   (https://learn.microsoft.com/en-us/entra/fundamentals/reference-company-branding-css-template) —
+   confirmed complete, nothing documented is missing. */
 
 @font-face
 {
@@ -15,23 +28,29 @@
 body
 {
     background: #161826;
-    color: #e9e9ed;
+    color: #e9e9ed !important;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
     font-size: 15px;
     line-height: 1.55;
 }
 
+/* Tuned for links on the dark page/footer, outside .ext-sign-in-box — see
+   the scoped .ext-sign-in-box a rules below for links inside the (light)
+   box. !important: at least one link ("Have an account? Sign in
+   instead") renders as plain default browser blue without it — Entra
+   styles it with higher specificity than a flat `a` selector, same
+   specificity fight documented below for .ext-title. */
 a,
 a:link
 {
-    color: #9184d9;
+    color: #9184d9 !important;
     text-decoration: underline;
     text-underline-offset: 3px;
 }
 
 a:hover
 {
-    color: #b5abfc;
+    color: #b5abfc !important;
 }
 
 a:focus
@@ -42,14 +61,39 @@ a:focus
 
 a:focus:hover
 {
-    color: #b5abfc;
+    color: #b5abfc !important;
     outline: 2px solid #9184d9;
     outline-offset: 2px;
 }
 
 a:active
 {
-    color: #5d5294;
+    color: #5d5294 !important;
+}
+
+/* #9184d9 above doesn't clear contrast against the box's light
+   background — accent-700 (#5d5294) instead, same darker step of the
+   ramp used for every other box-internal color below. */
+.ext-sign-in-box a,
+.ext-sign-in-box a:link
+{
+    color: #5d5294 !important;
+}
+
+.ext-sign-in-box a:hover
+{
+    color: #423a6a !important;
+}
+
+.ext-sign-in-box a:focus
+{
+    outline: 2px solid #5d5294 !important;
+    outline-offset: 2px;
+}
+
+.ext-sign-in-box a:active
+{
+    color: #2b2741 !important;
 }
 
 .ext-background-image
@@ -59,9 +103,6 @@ a:active
 
 .ext-background-overlay
 {
-    /* Flattens whatever background image is configured in the portal down
-       to a solid color, matching the plain dark background the SPA login
-       page uses instead of a photo. */
     background-color: #161826;
     opacity: 0.97;
 }
@@ -71,6 +112,23 @@ a:active
     background: transparent;
     padding: 24px 24px 0;
     text-align: center;
+}
+
+/* The "← name@email.com" identity/back-navigation row seen on the
+   password step doesn't actually live in .ext-header — confirmed by
+   another tenant hitting the same mismatch
+   (https://learn.microsoft.com/en-us/answers/questions/2104221): the real
+   element is a plain div.identityBanner, undocumented. Lives inside the
+   (light) box, so dark text. */
+.identityBanner
+{
+    background: transparent;
+    color: #292b31 !important;
+}
+
+.identityBanner *
+{
+    color: inherit !important;
 }
 
 .ext-header-logo
@@ -98,10 +156,27 @@ a:active
 {
     width: 400px;
     max-width: calc(100vw - 32px);
-    background: #1b1d2e;
+    background: #ffffff;
     border-radius: 8px;
     box-shadow: 0 0 0 1px #3f424d;
-    padding: 18px 24px;
+    padding: 16px 20px;
+}
+
+/* Blanket fallback for anything inside the box we haven't targeted
+   specifically — same idea as body's !important color above, but scoped
+   here, plus opacity: the account-picker description line
+   ([data-testid="accountPickerDesc"], overridden further down) stayed
+   near-invisible even with an !important color of its own, which means
+   Microsoft is fading it via some ancestor's opacity — color alone can't
+   fix that, since opacity compounds down the tree regardless of a
+   descendant's own color. Lower specificity than the targeted rules
+   below (.ext-title, [data-testid="mainText"], etc.), so those still win
+   where they apply; this only catches what nothing else does. */
+.ext-sign-in-box,
+.ext-sign-in-box *
+{
+    color: #292b31 !important;
+    opacity: 1 !important;
 }
 
 .ext-banner-logo
@@ -122,7 +197,7 @@ a:active
     font-size: 20px !important;
     line-height: 1.2;
     letter-spacing: -0.015em;
-    color: #e9e9ed !important;
+    color: #292b31 !important;
     text-align: center;
     margin-bottom: 6px;
 }
@@ -130,7 +205,7 @@ a:active
 .ext-subtitle
 {
     font-size: 13px !important;
-    color: rgba(233, 233, 237, 0.7) !important;
+    color: rgba(41, 43, 49, 0.7) !important;
     text-align: center;
     margin-bottom: 16px;
 }
@@ -138,32 +213,14 @@ a:active
 .ext-header-description
 {
     font-size: 13px !important;
-    color: rgba(233, 233, 237, 0.7) !important;
+    color: rgba(41, 43, 49, 0.7) !important;
     text-align: center;
-}
-
-/* "Pick an account" tile list (.tilesHolder > .tile-container > .table >
-   .table-row > .table-cell...) — Microsoft's own internal markup for this
-   page, not one of the documented .ext-* Company Branding selectors (see
-   https://learn.microsoft.com/en-us/entra/fundamentals/reference-company-branding-css-template),
-   so it's unstyled by default and renders in Microsoft's default
-   light-background text color — dark-on-dark against our .ext-sign-in-box.
-   Found via inspecting the live rendered DOM; not guaranteed stable across
-   Entra updates since it isn't part of the supported selector list. */
-.table-row .table-cell.content > div
-{
-    color: #e9e9ed !important;
-}
-
-.table-row .table-cell.content small
-{
-    color: rgba(233, 233, 237, 0.7) !important;
 }
 
 .ext-error
 {
     font-size: 12px;
-    color: #ef4444 !important;
+    color: #dc2626 !important;
     margin-bottom: 8px;
 }
 
@@ -174,9 +231,9 @@ a:active
     padding: 6px 10px;
     font-size: 14px;
     font-family: inherit;
-    color: #e9e9ed !important;
-    background: #232532 !important;
-    border: 1px solid rgba(233, 233, 237, 0.16);
+    color: #292b31 !important;
+    background: #f3f5fe !important;
+    border: 1px solid rgba(41, 43, 49, 0.16);
     border-radius: 8px;
 }
 
@@ -185,37 +242,37 @@ a:active
    the specificity or !important — this is the standard workaround (delay
    the background-color transition long enough that it never visibly
    kicks in, and repaint the text via -webkit-text-fill-color instead of
-   color). Caused the plain white/black email box seen on the sign-in page. */
+   color). */
 .ext-input.ext-text-box:-webkit-autofill,
 .ext-input.ext-text-box:-webkit-autofill:hover,
 .ext-input.ext-text-box:-webkit-autofill:focus
 {
-    -webkit-text-fill-color: #e9e9ed;
-    -webkit-box-shadow: 0 0 0px 1000px #232532 inset;
-    box-shadow: 0 0 0px 1000px #232532 inset;
+    -webkit-text-fill-color: #292b31;
+    -webkit-box-shadow: 0 0 0px 1000px #f3f5fe inset;
+    box-shadow: 0 0 0px 1000px #f3f5fe inset;
     transition: background-color 5000s ease-in-out 0s;
 }
 
 .ext-input.ext-text-box.ext-has-error
 {
-    border-color: #ef4444;
+    border-color: #dc2626;
 }
 
 .ext-input.ext-text-box:hover
 {
-    border-color: rgba(233, 233, 237, 0.45);
+    border-color: rgba(41, 43, 49, 0.4);
 }
 
 .ext-input.ext-text-box:focus
 {
     outline: none;
-    border-color: #9184d9;
+    border-color: #5d5294;
 }
 
 .ext-input.ext-text-box:focus:hover
 {
     outline: none;
-    border-color: #9184d9;
+    border-color: #5d5294;
 }
 
 .ext-password-reset-links-container
@@ -248,6 +305,9 @@ a:active
 
 .ext-button.ext-primary
 {
+    /* Outline style, mirroring login.tsx's .btn-primary shape — accent-700
+       rather than Nocturne's #9184d9, for contrast on the box's white
+       background. */
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -256,34 +316,34 @@ a:active
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
     font-weight: 500;
     font-size: 14px;
-    color: #9184d9;
-    background: transparent;
-    border: 1px solid #9184d9;
+    color: #5d5294 !important;
+    background: transparent !important;
+    border: 1px solid #5d5294;
     border-radius: 8px;
     cursor: pointer;
 }
 
 .ext-button.ext-primary:hover
 {
-    background: rgba(145, 132, 217, 0.12);
+    background: rgba(93, 82, 148, 0.08) !important;
 }
 
 .ext-button.ext-primary:focus
 {
-    outline: 2px solid #9184d9;
+    outline: 2px solid #5d5294;
     outline-offset: 2px;
 }
 
 .ext-button.ext-primary:focus:hover
 {
-    background: rgba(145, 132, 217, 0.12);
-    outline: 2px solid #9184d9;
+    background: rgba(93, 82, 148, 0.08) !important;
+    outline: 2px solid #5d5294;
     outline-offset: 2px;
 }
 
 .ext-button.ext-primary:active
 {
-    background: rgba(145, 132, 217, 0.22);
+    background: rgba(93, 82, 148, 0.16) !important;
 }
 
 .ext-button.ext-secondary
@@ -296,52 +356,59 @@ a:active
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
     font-weight: 500;
     font-size: 14px;
-    color: #e9e9ed;
-    background: transparent;
-    border: 1px solid rgba(233, 233, 237, 0.16);
+    color: #292b31 !important;
+    background: transparent !important;
+    border: 1px solid rgba(41, 43, 49, 0.2);
     border-radius: 8px;
     cursor: pointer;
 }
 
 .ext-button.ext-secondary:hover
 {
-    background: rgba(233, 233, 237, 0.07);
+    background: rgba(41, 43, 49, 0.06) !important;
 }
 
 .ext-button.ext-secondary:focus
 {
-    outline: 2px solid #9184d9;
+    outline: 2px solid #5d5294;
     outline-offset: 2px;
 }
 
 .ext-button.ext-secondary:focus:hover
 {
-    background: rgba(233, 233, 237, 0.07);
-    outline: 2px solid #9184d9;
+    background: rgba(41, 43, 49, 0.06) !important;
+    outline: 2px solid #5d5294;
     outline-offset: 2px;
 }
 
 .ext-button.ext-secondary:active
 {
-    background: rgba(233, 233, 237, 0.14);
+    background: rgba(41, 43, 49, 0.12) !important;
 }
 
-.ext-boilerplate-text
+/* The reset-password page renders this text with only the unprefixed
+   .boilerplate-text class, not .ext-boilerplate-text like sign-in/sign-up
+   — a known Microsoft inconsistency
+   (https://learn.microsoft.com/en-us/answers/questions/2104221). */
+.ext-boilerplate-text,
+.boilerplate-text
 {
     font-size: 11px;
-    color: rgba(233, 233, 237, 0.4);
+    color: rgba(41, 43, 49, 0.45);
     text-align: center;
     margin-top: 12px;
 }
 
 .ext-promoted-fed-cred-box
 {
-    border: 1px solid rgba(233, 233, 237, 0.16);
+    border: 1px solid rgba(41, 43, 49, 0.16);
     border-radius: 8px;
     padding: 10px;
     background: transparent;
 }
 
+/* Page-level, below .ext-sign-in-box — sits on the dark body background,
+   not the light box, so this stays light-on-dark. */
 .ext-footer
 {
     background: transparent;
@@ -377,4 +444,63 @@ a:active
 {
     font-size: 10px;
     color: rgba(233, 233, 237, 0.35);
+}
+
+/* Everything below is undocumented Microsoft markup found inside the
+   (light) box across the various interrupt pages — see the file-level
+   comment for why. Two different DOM variants have been observed for the
+   same "Pick an account" page: an older knockout.js one (.tilesHolder >
+   .tile-container > .table > .table-row > .table-cell...) and a newer
+   Fluent UI one (Griffel-generated atomic classes like f10pi13n, hashed
+   and unsafe to target — its [data-testid] attributes are the stable hook
+   instead, since Microsoft's own tests depend on them). Which variant
+   gets served isn't in our control, so both are covered. */
+.table-row .table-cell.content > div
+{
+    color: #292b31 !important;
+}
+
+.table-row .table-cell.content small
+{
+    color: rgba(41, 43, 49, 0.7) !important;
+}
+
+[data-testid="accountPickerDesc"]
+{
+    color: rgba(41, 43, 49, 0.6) !important;
+}
+
+[data-testid="mainText"]
+{
+    color: #292b31 !important;
+}
+
+/* "Stay signed in?" (KMSI) — a third markup variant, from what looks like
+   Microsoft's older classic engine: the heading is a plain .text-title
+   (not .ext-title), the body copy is #KmsiDescription.text-block-body,
+   and the "Don't show this again" checkbox label has no class/id of its
+   own at all. .text-title/.text-body look like generic row-layout classes
+   Microsoft reuses across more than just this one interrupt page. */
+.text-title
+{
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+    font-weight: 500 !important;
+    font-size: 20px !important;
+    color: #292b31 !important;
+    text-align: center;
+    margin-bottom: 6px;
+}
+
+#KmsiDescription,
+.text-block-body
+{
+    font-size: 13px !important;
+    color: rgba(41, 43, 49, 0.7) !important;
+}
+
+.checkbox label,
+.checkbox label span
+{
+    color: #292b31 !important;
+    font-size: 13px;
 }
