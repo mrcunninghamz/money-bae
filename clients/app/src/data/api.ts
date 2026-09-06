@@ -253,8 +253,6 @@ export interface LedgerInput {
   bankBalance?: Money
   income?: Money
   expenses?: Money
-  net?: Money
-  total?: Money | null
   notes?: string | null
 }
 
@@ -351,8 +349,6 @@ function toLedgerBody(input: LedgerInput) {
     bankBalance: input.bankBalance ? toRawMoney(input.bankBalance) : undefined,
     income: input.income ? toRawMoney(input.income) : undefined,
     expenses: input.expenses ? toRawMoney(input.expenses) : undefined,
-    net: input.net ? toRawMoney(input.net) : undefined,
-    total: input.total ? toRawMoney(input.total) : input.total,
     notes: input.notes,
   }
 }

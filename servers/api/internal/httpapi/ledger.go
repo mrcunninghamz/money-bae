@@ -22,32 +22,32 @@ type ledgerRequest struct {
 	BankBalance *money.Money `json:"bankBalance"`
 	Income      *money.Money `json:"income"`
 	Expenses    *money.Money `json:"expenses"`
-	Net         *money.Money `json:"net"`
-	Total       *money.Money `json:"total"`
 	Notes       *string      `json:"notes"`
 }
 
-// validatedLedger is a decoded, fully-validated ledgerRequest. Net is nil
-// when the request omitted it, signaling resolveNet should compute it.
+// validatedLedger is a decoded, fully-validated ledgerRequest. Net/Total
+// aren't part of it — they're always server-computed (resolveNet/
+// resolveTotal below), the same way tui/'s Postgres schema defined them as
+// GENERATED ALWAYS AS columns the client could never set directly.
 type validatedLedger struct {
 	Date        time.Time
 	Name        *string
 	BankBalance decimal.Decimal
 	Income      decimal.Decimal
 	Expenses    decimal.Decimal
-	Net         *decimal.Decimal
-	Total       *decimal.Decimal
 	Notes       *string
 }
 
-// resolveNet returns the request's explicit net if provided, otherwise
-// bankBalance + income - expenses — this is what lets the minimal
-// "date + name" add form work without the client ever computing net itself.
+// resolveNet mirrors tui/'s `net NUMERIC GENERATED ALWAYS AS (bank_balance +
+// income - expenses) STORED`.
 func resolveNet(v validatedLedger) decimal.Decimal {
-	if v.Net != nil {
-		return *v.Net
-	}
 	return v.BankBalance.Add(v.Income).Sub(v.Expenses)
+}
+
+// resolveTotal mirrors tui/'s `total NUMERIC GENERATED ALWAYS AS
+// (bank_balance + income) STORED`.
+func resolveTotal(v validatedLedger) decimal.Decimal {
+	return v.BankBalance.Add(v.Income)
 }
 
 // decodeOptionalMoney decodes an optional money field, defaulting to zero
@@ -88,34 +88,12 @@ func decodeLedgerRequest(w http.ResponseWriter, r *http.Request) (validatedLedge
 		return validatedLedger{}, false
 	}
 
-	var net *decimal.Decimal
-	if req.Net != nil {
-		n, ok := moneyToDecimal(*req.Net)
-		if !ok {
-			http.Error(w, "net must be in USD", http.StatusBadRequest)
-			return validatedLedger{}, false
-		}
-		net = &n
-	}
-
-	var total *decimal.Decimal
-	if req.Total != nil {
-		t, ok := moneyToDecimal(*req.Total)
-		if !ok {
-			http.Error(w, "total must be in USD", http.StatusBadRequest)
-			return validatedLedger{}, false
-		}
-		total = &t
-	}
-
 	return validatedLedger{
 		Date:        req.Date,
 		Name:        req.Name,
 		BankBalance: bankBalance,
 		Income:      income,
 		Expenses:    expenses,
-		Net:         net,
-		Total:       total,
 		Notes:       req.Notes,
 	}, true
 }
@@ -218,6 +196,7 @@ func createLedgerHandler(db *gorm.DB) http.HandlerFunc {
 		}
 
 		net := resolveNet(req)
+		total := resolveTotal(req)
 		ledger := models.Ledger{
 			UserID:      principal.UserID,
 			Date:        req.Date,
@@ -226,7 +205,7 @@ func createLedgerHandler(db *gorm.DB) http.HandlerFunc {
 			Income:      req.Income,
 			Expenses:    req.Expenses,
 			Net:         &net,
-			Total:       req.Total,
+			Total:       &total,
 			Notes:       req.Notes,
 		}
 
@@ -312,13 +291,14 @@ func updateLedgerHandler(db *gorm.DB) http.HandlerFunc {
 		}
 
 		net := resolveNet(req)
+		total := resolveTotal(req)
 		ledger.Date = req.Date
 		ledger.Name = req.Name
 		ledger.BankBalance = req.BankBalance
 		ledger.Income = req.Income
 		ledger.Expenses = req.Expenses
 		ledger.Net = &net
-		ledger.Total = req.Total
+		ledger.Total = &total
 		ledger.Notes = req.Notes
 
 		if err := db.Save(&ledger).Error; err != nil {
