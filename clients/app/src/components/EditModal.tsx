@@ -505,7 +505,7 @@ export function EditModal() {
             </div>
             <div className="field">
               <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                Cash flow
+                Cashflow
                 <span
                   className="group relative inline-flex"
                   style={{ alignItems: 'center', cursor: 'help' }}

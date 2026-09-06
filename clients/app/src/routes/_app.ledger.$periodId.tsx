@@ -379,7 +379,7 @@ function LedgerItemPage() {
                     color: 'rgba(233,233,237,.6)',
                   }}
                 >
-                  Cash flow
+                  Cashflow
                   <span
                     className="group relative inline-flex"
                     style={{ alignItems: 'center', cursor: 'help' }}
