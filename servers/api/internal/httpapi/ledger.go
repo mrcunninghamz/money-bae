@@ -50,6 +50,45 @@ func resolveTotal(v validatedLedger) decimal.Decimal {
 	return v.BankBalance.Add(v.Income)
 }
 
+// recalculateLedgerTotals mirrors tui/'s recalculate_ledger_totals()
+// Postgres trigger (tui/migrations/.../add_ledger_totals_triggers), applied
+// here instead of at the DB layer: sums a ledger's attached Incomes and
+// LedgerBills into its income/expenses columns, then rederives net/total
+// from them. Call this after any write that attaches, edits, or removes an
+// Income or LedgerBill — those never touch the ledger row itself
+// otherwise, so its stored totals would otherwise go stale.
+// Uses SQL SUM() directly, not a Go-side loop — safe because
+// decimal.Decimal columns are genuinely `numeric` (see
+// internal/migrations' "decimal_columns_to_numeric" migration and the
+// gorm:"type:numeric" tags in internal/models), not the untyped-text
+// columns AutoMigrate defaulted to before that.
+func recalculateLedgerTotals(db *gorm.DB, ledgerID uuid.UUID) error {
+	var ledger models.Ledger
+	if err := db.Select("bank_balance").First(&ledger, "id = ?", ledgerID).Error; err != nil {
+		return err
+	}
+
+	var income decimal.Decimal
+	if err := db.Model(&models.Income{}).Where("ledger_id = ?", ledgerID).
+		Select("COALESCE(SUM(amount), 0)").Row().Scan(&income); err != nil {
+		return err
+	}
+
+	var expenses decimal.Decimal
+	if err := db.Model(&models.LedgerBill{}).Where("ledger_id = ?", ledgerID).
+		Select("COALESCE(SUM(amount), 0)").Row().Scan(&expenses); err != nil {
+		return err
+	}
+
+	v := validatedLedger{BankBalance: ledger.BankBalance, Income: income, Expenses: expenses}
+	return db.Model(&models.Ledger{}).Where("id = ?", ledgerID).Updates(map[string]any{
+		"income":   income,
+		"expenses": expenses,
+		"net":      resolveNet(v),
+		"total":    resolveTotal(v),
+	}).Error
+}
+
 // decodeOptionalMoney decodes an optional money field, defaulting to zero
 // when the field is absent, but rejecting a present-but-wrong-currency value.
 func decodeOptionalMoney(w http.ResponseWriter, fieldName string, m *money.Money) (decimal.Decimal, bool) {
@@ -176,7 +215,7 @@ func findOwnedLedger(w http.ResponseWriter, r *http.Request, db *gorm.DB, userID
 		return ledger, false
 	}
 	if err != nil {
-		http.Error(w, "failed to look up ledger", http.StatusInternalServerError)
+		internalError(w, r, "failed to look up ledger", err)
 		return ledger, false
 	}
 	return ledger, true
@@ -210,7 +249,7 @@ func createLedgerHandler(db *gorm.DB) http.HandlerFunc {
 		}
 
 		if err := db.Create(&ledger).Error; err != nil {
-			http.Error(w, "failed to create ledger", http.StatusInternalServerError)
+			internalError(w, r, "failed to create ledger", err)
 			return
 		}
 
@@ -229,7 +268,7 @@ func listLedgersHandler(db *gorm.DB) http.HandlerFunc {
 		var ledgers []models.Ledger
 		order := "date " + orderDirection(r)
 		if err := db.Where("user_id = ?", principal.UserID).Order(order).Find(&ledgers).Error; err != nil {
-			http.Error(w, "failed to list ledgers", http.StatusInternalServerError)
+			internalError(w, r, "failed to list ledgers", err)
 			return
 		}
 
@@ -264,7 +303,7 @@ func getLedgerHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			http.Error(w, "failed to look up ledger", http.StatusInternalServerError)
+			internalError(w, r, "failed to look up ledger", err)
 			return
 		}
 
@@ -302,7 +341,7 @@ func updateLedgerHandler(db *gorm.DB) http.HandlerFunc {
 		ledger.Notes = req.Notes
 
 		if err := db.Save(&ledger).Error; err != nil {
-			http.Error(w, "failed to update ledger", http.StatusInternalServerError)
+			internalError(w, r, "failed to update ledger", err)
 			return
 		}
 
@@ -342,7 +381,7 @@ func deleteLedgerHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			http.Error(w, "failed to delete ledger", http.StatusInternalServerError)
+			internalError(w, r, "failed to delete ledger", err)
 			return
 		}
 
@@ -463,7 +502,7 @@ func currentLedgerHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			http.Error(w, "failed to look up current cycle", http.StatusInternalServerError)
+			internalError(w, r, "failed to look up current cycle", err)
 			return
 		}
 
@@ -514,7 +553,7 @@ func ledgerHistoryHandler(db *gorm.DB) http.HandlerFunc {
 			Limit(limit).
 			Find(&ledgers).Error
 		if err != nil {
-			http.Error(w, "failed to list cycle history", http.StatusInternalServerError)
+			internalError(w, r, "failed to list cycle history", err)
 			return
 		}
 
@@ -648,8 +687,14 @@ func createLedgerBillHandler(db *gorm.DB) http.HandlerFunc {
 		}
 		lb.LedgerID = ledger.ID
 
-		if err := db.Create(&lb).Error; err != nil {
-			http.Error(w, "failed to create ledger bill", http.StatusInternalServerError)
+		err := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Create(&lb).Error; err != nil {
+				return err
+			}
+			return recalculateLedgerTotals(tx, ledger.ID)
+		})
+		if err != nil {
+			internalError(w, r, "failed to create ledger bill", err)
 			return
 		}
 
@@ -679,7 +724,7 @@ func findOwnedLedgerBill(w http.ResponseWriter, r *http.Request, db *gorm.DB, us
 		return lb, false
 	}
 	if err != nil {
-		http.Error(w, "failed to look up ledger bill", http.StatusInternalServerError)
+		internalError(w, r, "failed to look up ledger bill", err)
 		return lb, false
 	}
 	return lb, true
@@ -709,8 +754,14 @@ func updateLedgerBillHandler(db *gorm.DB) http.HandlerFunc {
 		lb.IsPayed = req.IsPayed
 		lb.Notes = req.Notes
 
-		if err := db.Save(&lb).Error; err != nil {
-			http.Error(w, "failed to update ledger bill", http.StatusInternalServerError)
+		err := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Save(&lb).Error; err != nil {
+				return err
+			}
+			return recalculateLedgerTotals(tx, lb.LedgerID)
+		})
+		if err != nil {
+			internalError(w, r, "failed to update ledger bill", err)
 			return
 		}
 
@@ -741,13 +792,22 @@ func deleteLedgerBillHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		result := db.Where("id = ? AND ledger_id = ?", id, ledgerID).Delete(&models.LedgerBill{})
-		if result.Error != nil {
-			http.Error(w, "failed to delete ledger bill", http.StatusInternalServerError)
+		err = db.Transaction(func(tx *gorm.DB) error {
+			result := tx.Where("id = ? AND ledger_id = ?", id, ledgerID).Delete(&models.LedgerBill{})
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				return gorm.ErrRecordNotFound
+			}
+			return recalculateLedgerTotals(tx, ledgerID)
+		})
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			http.Error(w, "ledger bill not found", http.StatusNotFound)
 			return
 		}
-		if result.RowsAffected == 0 {
-			http.Error(w, "ledger bill not found", http.StatusNotFound)
+		if err != nil {
+			internalError(w, r, "failed to delete ledger bill", err)
 			return
 		}
 

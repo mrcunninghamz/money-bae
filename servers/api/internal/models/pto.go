@@ -10,11 +10,11 @@ type Pto struct {
 	UserID         uuid.UUID       `gorm:"not null;index"`
 	User           User            `gorm:"foreignKey:UserID"`
 	Year           int             `gorm:"not null"`
-	PrevYearHours  decimal.Decimal `gorm:"not null"`
-	AvailableHours decimal.Decimal `gorm:"not null"`
-	HoursPlanned   decimal.Decimal `gorm:"not null"`
-	HoursUsed      decimal.Decimal `gorm:"not null"`
-	HoursRemaining decimal.Decimal `gorm:"not null"`
+	PrevYearHours  decimal.Decimal `gorm:"not null;type:numeric"`
+	AvailableHours decimal.Decimal `gorm:"not null;type:numeric"`
+	HoursPlanned   decimal.Decimal `gorm:"not null;type:numeric"`
+	HoursUsed      decimal.Decimal `gorm:"not null;type:numeric"`
+	HoursRemaining decimal.Decimal `gorm:"not null;type:numeric"`
 	RolloverHours  bool            `gorm:"not null"`
 	PtoPlans       []PtoPlan       `gorm:"foreignKey:PtoID"`
 	HolidayHours   []HolidayHour   `gorm:"foreignKey:PtoID"`

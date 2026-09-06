@@ -79,7 +79,7 @@ export function EditModal() {
 
   useEffect(() => {
     if (store.modal !== 'income') return
-    void store.ensureLedgers() // so an assigned income can link to its ledger by name
+    void store.loadLedgers() // so an assigned income can link to its ledger by name
     const existing =
       store.modalMode === 'Edit'
         ? store.income.find((i) => i.id === store.incomeSelected)
