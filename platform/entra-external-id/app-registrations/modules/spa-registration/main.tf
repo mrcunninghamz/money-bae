@@ -7,6 +7,12 @@ terraform {
   }
 }
 
+data "azuread_application_published_app_ids" "well_known" {}
+
+data "azuread_service_principal" "msgraph" {
+  client_id = data.azuread_application_published_app_ids.well_known.result.MicrosoftGraph
+}
+
 resource "azuread_application" "spa" {
   display_name     = var.display_name
   sign_in_audience = "AzureADMyOrg"
@@ -56,4 +62,18 @@ resource "azuread_service_principal_delegated_permission_grant" "spa_to_api" {
   service_principal_object_id          = azuread_service_principal.spa.object_id
   resource_service_principal_object_id = var.api_service_principal_object_id
   claim_values                         = ["access_as_user"]
+}
+
+# MSAL requests these baseline OIDC scopes on every sign-in by default, in
+# addition to the custom API scope above. They're not modeled via
+# required_resource_access at all (every app can request them implicitly,
+# without listing them), but they still need their own delegated permission
+# grant -- the access_as_user grant above only pre-consents the custom API,
+# not Microsoft Graph. Without this, every new user hits an individual
+# Microsoft consent prompt ("View your basic profile" / "Maintain access to
+# data you have given it access to") on first sign-in.
+resource "azuread_service_principal_delegated_permission_grant" "spa_to_msgraph" {
+  service_principal_object_id          = azuread_service_principal.spa.object_id
+  resource_service_principal_object_id = data.azuread_service_principal.msgraph.object_id
+  claim_values                         = ["openid", "profile", "offline_access"]
 }

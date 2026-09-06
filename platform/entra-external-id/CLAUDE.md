@@ -12,7 +12,11 @@ server across two databases — holding four app registrations:
 - `money-bae-local` / `money-bae-dev` — SPA (PKCE) clients for `../../clients/app`
 - `money-bae-api-local` / `money-bae-api-dev` — API resources for `../../servers/api`,
   each exposing an `access_as_user` scope that its matching SPA app is
-  pre-consented for.
+  pre-consented for. Each SPA app is separately pre-consented for Microsoft
+  Graph's baseline `openid`/`profile`/`offline_access` scopes too (MSAL
+  requests these by default on every sign-in) — without that second grant,
+  every new user hits an individual Microsoft consent prompt on first
+  sign-in even though the custom API scope is already pre-consented.
 
 Design spec: `../../docs/superpowers/specs/2026-09-04-entra-external-id-design.md`
 
