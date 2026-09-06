@@ -56,6 +56,17 @@ the repo's infra-as-code (`platform/db/`, `platform/web-client/`).
 ../../platform/api/Dockerfile -t money-bae-api:local .` run from
 `servers/api/`). `../../platform/api/cdk/` is a CDK app defining the AWS
 App Runner deployment (ECR repo, App Runner service, Secrets Manager
-reference for `DATABASE_URL`) — see its own directory for details. `cdk
-deploy` has not been run; this repo only generates the template (`cdk
-synth`) so far.
+reference for `DATABASE_URL`) — see its own directory for details. Both
+stacks (`MoneyBaeApiEcrStack`, `MoneyBaeApiStack`) are deployed and live
+(App Runner service `ApiService8D48F45E-...`, region us-east-1). The
+service's ECR source has `autoDeploymentsEnabled: false` — pushing a new
+`:latest` image doesn't roll out on its own, so a deploy is: build, tag,
+push to ECR, then `aws apprunner start-deployment --service-arn <arn>`
+to actually roll it out.
+
+Because `migrations.Run` (`cmd/api/main.go`) runs unconditionally on
+every startup, deploying a new image immediately applies any pending
+schema migration to whatever `DATABASE_URL` that Secrets Manager entry
+points to — currently the shared dev Postgres, not a throwaway
+per-deploy database. Treat an API deploy with the same care as a
+migration against shared infrastructure.

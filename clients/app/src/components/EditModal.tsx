@@ -504,7 +504,50 @@ export function EditModal() {
               />
             </div>
             <div className="field">
-              <label>Bank balance</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                Cashflow
+                <span
+                  className="group relative inline-flex"
+                  style={{ alignItems: 'center', cursor: 'help' }}
+                >
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 14,
+                      height: 14,
+                      borderRadius: '50%',
+                      border: '1px solid rgba(233,233,237,.4)',
+                      fontSize: 9,
+                      lineHeight: 1,
+                      color: 'rgba(233,233,237,.6)',
+                    }}
+                  >
+                    i
+                  </span>
+                  <span
+                    className="invisible group-hover:visible absolute"
+                    style={{
+                      bottom: '130%',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: 180,
+                      padding: '6px 8px',
+                      borderRadius: 6,
+                      background: '#232532',
+                      color: '#e9e9ed',
+                      fontSize: 11,
+                      lineHeight: 1.4,
+                      textAlign: 'center',
+                      boxShadow: '0 0 0 1px #3f424d, 0 4px 12px rgba(0,0,0,.4)',
+                      zIndex: 10,
+                    }}
+                  >
+                    whatever other cashflow you got outside of income
+                  </span>
+                </span>
+              </label>
               <input
                 className="input mono"
                 type="number"
