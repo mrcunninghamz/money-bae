@@ -12,7 +12,7 @@ type Bill struct {
 	UserID      uuid.UUID       `gorm:"not null;index"`
 	User        User            `gorm:"foreignKey:UserID"`
 	Name        string          `gorm:"not null"`
-	Amount      decimal.Decimal `gorm:"not null"`
+	Amount      decimal.Decimal `gorm:"not null;type:numeric"`
 	DueDay      *time.Time
 	IsAutoPay   bool `gorm:"not null"`
 	Notes       *string

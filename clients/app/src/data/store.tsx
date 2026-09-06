@@ -95,7 +95,7 @@ interface AppStore {
   modalMode: ModalMode
   ensureIncome: () => Promise<void>
   ensureBills: () => Promise<void>
-  ensureLedgers: () => Promise<void>
+  loadLedgers: () => Promise<void>
   ensurePtos: () => Promise<void>
   signIn: () => void
   signOut: () => void
@@ -227,7 +227,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   // so the next visit can retry.
   const incomePromiseRef = useRef<Promise<void> | null>(null)
   const billsPromiseRef = useRef<Promise<void> | null>(null)
-  const ledgersPromiseRef = useRef<Promise<void> | null>(null)
   const ptosPromiseRef = useRef<Promise<void> | null>(null)
 
   function ensureIncome(): Promise<void> {
@@ -256,17 +255,19 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     return promise
   }
 
-  function ensureLedgers(): Promise<void> {
-    if (ledgersPromiseRef.current) return ledgersPromiseRef.current
-    const promise = listLedgers()
+  // Unlike ensureIncome/ensureBills/ensurePtos above, this always refetches
+  // rather than caching for the session: a ledger's net/total/income/
+  // expenses are recalculated server-side whenever an Income or LedgerBill
+  // attached to it changes elsewhere (the detail page, an import), so a
+  // cached ledgers list goes stale the moment you leave the list page and
+  // come back.
+  function loadLedgers(): Promise<void> {
+    return listLedgers()
       .then(setLedgers)
       .catch((err: unknown) => {
         console.error('failed to load ledgers', err)
         showToast('error', "couldn't load your ledger")
-        ledgersPromiseRef.current = null
       })
-    ledgersPromiseRef.current = promise
-    return promise
   }
 
   function ensurePtos(): Promise<void> {
@@ -305,7 +306,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     modalMode,
     ensureIncome,
     ensureBills,
-    ensureLedgers,
+    loadLedgers,
     ensurePtos,
     signIn: () => void instance.loginRedirect(loginRequest),
     signOut: () => {

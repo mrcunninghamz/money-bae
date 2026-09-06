@@ -108,7 +108,7 @@ func findOwnedPto(w http.ResponseWriter, r *http.Request, db *gorm.DB, userID uu
 		return pto, false
 	}
 	if err != nil {
-		http.Error(w, "failed to look up pto", http.StatusInternalServerError)
+		internalError(w, r, "failed to look up pto", err)
 		return pto, false
 	}
 	return pto, true
@@ -132,7 +132,7 @@ func currentPtoHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			http.Error(w, "failed to look up current pto", http.StatusInternalServerError)
+			internalError(w, r, "failed to look up current pto", err)
 			return
 		}
 
@@ -165,7 +165,7 @@ func createPtoHandler(db *gorm.DB) http.HandlerFunc {
 		}
 
 		if err := db.Create(&pto).Error; err != nil {
-			http.Error(w, "failed to create pto", http.StatusInternalServerError)
+			internalError(w, r, "failed to create pto", err)
 			return
 		}
 
@@ -184,7 +184,7 @@ func listPtosHandler(db *gorm.DB) http.HandlerFunc {
 		var ptos []models.Pto
 		order := "year " + orderDirection(r)
 		if err := db.Where("user_id = ?", principal.UserID).Order(order).Find(&ptos).Error; err != nil {
-			http.Error(w, "failed to list ptos", http.StatusInternalServerError)
+			internalError(w, r, "failed to list ptos", err)
 			return
 		}
 
@@ -219,7 +219,7 @@ func getPtoHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			http.Error(w, "failed to look up pto", http.StatusInternalServerError)
+			internalError(w, r, "failed to look up pto", err)
 			return
 		}
 
@@ -252,7 +252,7 @@ func updatePtoHandler(db *gorm.DB) http.HandlerFunc {
 		pto.HoursRemaining = req.AvailableHours.Add(req.PrevYearHours).Sub(pto.HoursUsed).Sub(pto.HoursPlanned)
 
 		if err := db.Save(&pto).Error; err != nil {
-			http.Error(w, "failed to update pto", http.StatusInternalServerError)
+			internalError(w, r, "failed to update pto", err)
 			return
 		}
 
@@ -292,7 +292,7 @@ func deletePtoHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			http.Error(w, "failed to delete pto", http.StatusInternalServerError)
+			internalError(w, r, "failed to delete pto", err)
 			return
 		}
 
@@ -430,7 +430,7 @@ func createPtoPlanHandler(db *gorm.DB) http.HandlerFunc {
 			return recomputePtoHours(tx, pto.ID)
 		})
 		if err != nil {
-			http.Error(w, "failed to create pto plan", http.StatusInternalServerError)
+			internalError(w, r, "failed to create pto plan", err)
 			return
 		}
 
@@ -460,7 +460,7 @@ func findOwnedPtoPlan(w http.ResponseWriter, r *http.Request, db *gorm.DB, userI
 		return plan, false
 	}
 	if err != nil {
-		http.Error(w, "failed to look up pto plan", http.StatusInternalServerError)
+		internalError(w, r, "failed to look up pto plan", err)
 		return plan, false
 	}
 	return plan, true
@@ -499,7 +499,7 @@ func updatePtoPlanHandler(db *gorm.DB) http.HandlerFunc {
 			return recomputePtoHours(tx, plan.PtoID)
 		})
 		if err != nil {
-			http.Error(w, "failed to update pto plan", http.StatusInternalServerError)
+			internalError(w, r, "failed to update pto plan", err)
 			return
 		}
 
@@ -545,7 +545,7 @@ func deletePtoPlanHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			http.Error(w, "failed to delete pto plan", http.StatusInternalServerError)
+			internalError(w, r, "failed to delete pto plan", err)
 			return
 		}
 
@@ -622,7 +622,7 @@ func createHolidayHourHandler(db *gorm.DB) http.HandlerFunc {
 		holiday.PtoID = pto.ID
 
 		if err := db.Create(&holiday).Error; err != nil {
-			http.Error(w, "failed to create holiday hour", http.StatusInternalServerError)
+			internalError(w, r, "failed to create holiday hour", err)
 			return
 		}
 
@@ -652,7 +652,7 @@ func findOwnedHolidayHour(w http.ResponseWriter, r *http.Request, db *gorm.DB, u
 		return holiday, false
 	}
 	if err != nil {
-		http.Error(w, "failed to look up holiday hour", http.StatusInternalServerError)
+		internalError(w, r, "failed to look up holiday hour", err)
 		return holiday, false
 	}
 	return holiday, true
@@ -681,7 +681,7 @@ func updateHolidayHourHandler(db *gorm.DB) http.HandlerFunc {
 		holiday.Hours = req.Hours
 
 		if err := db.Save(&holiday).Error; err != nil {
-			http.Error(w, "failed to update holiday hour", http.StatusInternalServerError)
+			internalError(w, r, "failed to update holiday hour", err)
 			return
 		}
 
@@ -714,7 +714,7 @@ func deleteHolidayHourHandler(db *gorm.DB) http.HandlerFunc {
 
 		result := db.Where("id = ? AND pto_id = ?", id, ptoID).Delete(&models.HolidayHour{})
 		if result.Error != nil {
-			http.Error(w, "failed to delete holiday hour", http.StatusInternalServerError)
+			internalError(w, r, "failed to delete holiday hour", result.Error)
 			return
 		}
 		if result.RowsAffected == 0 {

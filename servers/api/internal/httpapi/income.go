@@ -113,8 +113,17 @@ func createIncomeHandler(db *gorm.DB) http.HandlerFunc {
 			Notes:    req.Notes,
 		}
 
-		if err := db.Create(&income).Error; err != nil {
-			http.Error(w, "failed to create income", http.StatusInternalServerError)
+		err := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Create(&income).Error; err != nil {
+				return err
+			}
+			if income.LedgerID != nil {
+				return recalculateLedgerTotals(tx, *income.LedgerID)
+			}
+			return nil
+		})
+		if err != nil {
+			internalError(w, r, "failed to create income", err)
 			return
 		}
 
@@ -172,7 +181,7 @@ func listIncomesHandler(db *gorm.DB) http.HandlerFunc {
 		var incomes []models.Income
 		order := "date " + orderDirection(r)
 		if err := query.Order(order).Find(&incomes).Error; err != nil {
-			http.Error(w, "failed to list incomes", http.StatusInternalServerError)
+			internalError(w, r, "failed to list incomes", err)
 			return
 		}
 
@@ -199,7 +208,7 @@ func findOwnedIncome(w http.ResponseWriter, r *http.Request, db *gorm.DB, userID
 		return income, false
 	}
 	if err != nil {
-		http.Error(w, "failed to look up income", http.StatusInternalServerError)
+		internalError(w, r, "failed to look up income", err)
 		return income, false
 	}
 	return income, true
@@ -246,7 +255,7 @@ func getIncomeHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			http.Error(w, "failed to look up income", http.StatusInternalServerError)
+			internalError(w, r, "failed to look up income", err)
 			return
 		}
 
@@ -272,13 +281,31 @@ func updateIncomeHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		oldLedgerID := income.LedgerID
 		income.Date = req.Date
 		income.Amount = req.Amount
 		income.LedgerID = req.LedgerID
 		income.Notes = req.Notes
 
-		if err := db.Save(&income).Error; err != nil {
-			http.Error(w, "failed to update income", http.StatusInternalServerError)
+		err := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Save(&income).Error; err != nil {
+				return err
+			}
+			if income.LedgerID != nil {
+				if err := recalculateLedgerTotals(tx, *income.LedgerID); err != nil {
+					return err
+				}
+			}
+			// The income moved to a different ledger (or was detached) —
+			// the ledger it left behind needs recalculating too, same as
+			// tui/'s trigger did when ledger_id changed on an UPDATE.
+			if oldLedgerID != nil && (income.LedgerID == nil || *oldLedgerID != *income.LedgerID) {
+				return recalculateLedgerTotals(tx, *oldLedgerID)
+			}
+			return nil
+		})
+		if err != nil {
+			internalError(w, r, "failed to update income", err)
 			return
 		}
 
@@ -294,19 +321,22 @@ func deleteIncomeHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		id, err := uuid.Parse(r.PathValue("id"))
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		income, ok := findOwnedIncome(w, r, db, principal.UserID)
+		if !ok {
 			return
 		}
 
-		result := db.Where("id = ? AND user_id = ?", id, principal.UserID).Delete(&models.Income{})
-		if result.Error != nil {
-			http.Error(w, "failed to delete income", http.StatusInternalServerError)
-			return
-		}
-		if result.RowsAffected == 0 {
-			http.Error(w, "income not found", http.StatusNotFound)
+		err := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Delete(&income).Error; err != nil {
+				return err
+			}
+			if income.LedgerID != nil {
+				return recalculateLedgerTotals(tx, *income.LedgerID)
+			}
+			return nil
+		})
+		if err != nil {
+			internalError(w, r, "failed to delete income", err)
 			return
 		}
 

@@ -19,7 +19,7 @@ import (
 )
 
 func newIncomeTestRouter(t *testing.T) (http.Handler, *gorm.DB) {
-	db := testdb.New(t, &models.User{}, &models.Ledger{}, &models.Income{})
+	db := testdb.New(t, &models.User{}, &models.Ledger{}, &models.Income{}, &models.LedgerBill{}, &models.Bill{})
 	router := NewRouter(db, auth.MockVerifier{DB: db})
 	return router, db
 }
@@ -154,6 +154,128 @@ func TestCreateIncome_WithOwnLedger_Succeeds(t *testing.T) {
 	got := decodeIncomeResponse(t, rec)
 	if got.LedgerID == nil || *got.LedgerID != ledger.ID {
 		t.Fatalf("expected ledgerId %s, got %+v", ledger.ID, got.LedgerID)
+	}
+}
+
+func TestCreateIncome_WithLedger_RecalculatesLedgerTotals(t *testing.T) {
+	router, db := newIncomeTestRouter(t)
+	user := seedCurrentUser(t, db)
+
+	ledger := models.Ledger{
+		UserID: user.ID, Date: time.Now(),
+		BankBalance: decimal.NewFromInt(1000), Income: decimal.Zero, Expenses: decimal.Zero,
+	}
+	if err := db.Create(&ledger).Error; err != nil {
+		t.Fatalf("failed to seed ledger: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodPost, "/incomes", incomeRequest{
+		Date:     time.Now(),
+		Amount:   *money.New(20000, "USD"), // $200
+		LedgerID: &ledger.ID,
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, router, http.MethodGet, "/ledgers/"+ledger.ID.String(), nil)
+	got := decodeLedgerResponse(t, rec)
+	if got.Income.Amount() != 20000 {
+		t.Fatalf("expected ledger income 200 USD, got %+v", got.Income)
+	}
+	if got.Net.Amount() != 120000 {
+		t.Fatalf("expected net 1200 USD (1000 bank + 200 income), got %+v", got.Net)
+	}
+}
+
+func TestUpdateIncome_MovedToDifferentLedger_RecalculatesBothLedgers(t *testing.T) {
+	router, db := newIncomeTestRouter(t)
+	user := seedCurrentUser(t, db)
+
+	ledgerA := models.Ledger{
+		UserID: user.ID, Date: time.Now(),
+		BankBalance: decimal.NewFromInt(1000), Income: decimal.Zero, Expenses: decimal.Zero,
+	}
+	if err := db.Create(&ledgerA).Error; err != nil {
+		t.Fatalf("failed to seed ledger A: %v", err)
+	}
+	ledgerB := models.Ledger{
+		UserID: user.ID, Date: time.Now(),
+		BankBalance: decimal.NewFromInt(500), Income: decimal.Zero, Expenses: decimal.Zero,
+	}
+	if err := db.Create(&ledgerB).Error; err != nil {
+		t.Fatalf("failed to seed ledger B: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodPost, "/incomes", incomeRequest{
+		Date:     time.Now(),
+		Amount:   *money.New(20000, "USD"), // $200
+		LedgerID: &ledgerA.ID,
+	})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	income := decodeIncomeResponse(t, rec)
+
+	rec = doJSON(t, router, http.MethodPut, "/incomes/"+income.ID.String(), incomeRequest{
+		Date:     time.Now(),
+		Amount:   *money.New(20000, "USD"),
+		LedgerID: &ledgerB.ID,
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, router, http.MethodGet, "/ledgers/"+ledgerA.ID.String(), nil)
+	gotA := decodeLedgerResponse(t, rec)
+	if gotA.Income.Amount() != 0 {
+		t.Fatalf("expected ledger A income back to 0, got %+v", gotA.Income)
+	}
+	if gotA.Net.Amount() != 100000 {
+		t.Fatalf("expected ledger A net back to 1000 USD, got %+v", gotA.Net)
+	}
+
+	rec = doJSON(t, router, http.MethodGet, "/ledgers/"+ledgerB.ID.String(), nil)
+	gotB := decodeLedgerResponse(t, rec)
+	if gotB.Income.Amount() != 20000 {
+		t.Fatalf("expected ledger B income 200 USD, got %+v", gotB.Income)
+	}
+	if gotB.Net.Amount() != 70000 {
+		t.Fatalf("expected ledger B net 700 USD (500 bank + 200 income), got %+v", gotB.Net)
+	}
+}
+
+func TestDeleteIncome_RecalculatesLedgerTotals(t *testing.T) {
+	router, db := newIncomeTestRouter(t)
+	user := seedCurrentUser(t, db)
+
+	ledger := models.Ledger{
+		UserID: user.ID, Date: time.Now(),
+		BankBalance: decimal.NewFromInt(1000), Income: decimal.Zero, Expenses: decimal.Zero,
+	}
+	if err := db.Create(&ledger).Error; err != nil {
+		t.Fatalf("failed to seed ledger: %v", err)
+	}
+
+	rec := doJSON(t, router, http.MethodPost, "/incomes", incomeRequest{
+		Date:     time.Now(),
+		Amount:   *money.New(20000, "USD"),
+		LedgerID: &ledger.ID,
+	})
+	income := decodeIncomeResponse(t, rec)
+
+	rec = doJSON(t, router, http.MethodDelete, "/incomes/"+income.ID.String(), nil)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = doJSON(t, router, http.MethodGet, "/ledgers/"+ledger.ID.String(), nil)
+	got := decodeLedgerResponse(t, rec)
+	if got.Income.Amount() != 0 {
+		t.Fatalf("expected ledger income back to 0, got %+v", got.Income)
+	}
+	if got.Net.Amount() != 100000 {
+		t.Fatalf("expected net back to 1000 USD, got %+v", got.Net)
 	}
 }
 

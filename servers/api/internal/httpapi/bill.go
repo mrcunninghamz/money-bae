@@ -146,7 +146,7 @@ func findOwnedBill(w http.ResponseWriter, r *http.Request, db *gorm.DB, userID u
 		return bill, false
 	}
 	if err != nil {
-		http.Error(w, "failed to look up bill", http.StatusInternalServerError)
+		internalError(w, r, "failed to look up bill", err)
 		return bill, false
 	}
 	return bill, true
@@ -175,7 +175,7 @@ func createBillHandler(db *gorm.DB) http.HandlerFunc {
 		}
 
 		if err := db.Create(&bill).Error; err != nil {
-			http.Error(w, "failed to create bill", http.StatusInternalServerError)
+			internalError(w, r, "failed to create bill", err)
 			return
 		}
 
@@ -194,7 +194,7 @@ func listBillsHandler(db *gorm.DB) http.HandlerFunc {
 		var bills []models.Bill
 		order := "created_at " + orderDirection(r)
 		if err := db.Where("user_id = ?", principal.UserID).Order(order).Find(&bills).Error; err != nil {
-			http.Error(w, "failed to list bills", http.StatusInternalServerError)
+			internalError(w, r, "failed to list bills", err)
 			return
 		}
 
@@ -229,7 +229,7 @@ func getBillHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			http.Error(w, "failed to look up bill", http.StatusInternalServerError)
+			internalError(w, r, "failed to look up bill", err)
 			return
 		}
 
@@ -262,7 +262,7 @@ func updateBillHandler(db *gorm.DB) http.HandlerFunc {
 		bill.Notes = req.Notes
 
 		if err := db.Save(&bill).Error; err != nil {
-			http.Error(w, "failed to update bill", http.StatusInternalServerError)
+			internalError(w, r, "failed to update bill", err)
 			return
 		}
 
@@ -299,7 +299,7 @@ func deleteBillHandler(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			http.Error(w, "failed to delete bill", http.StatusInternalServerError)
+			internalError(w, r, "failed to delete bill", err)
 			return
 		}
 

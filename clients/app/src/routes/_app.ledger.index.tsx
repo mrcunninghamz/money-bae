@@ -18,7 +18,7 @@ function LedgerListPage() {
   const selection = useMultiSelect()
 
   useEffect(() => {
-    void store.ensureLedgers()
+    void store.loadLedgers()
   }, [])
 
   function handleEdit() {

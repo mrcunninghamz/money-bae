@@ -15,7 +15,7 @@ type PtoPlan struct {
 	EndDate     time.Time `gorm:"not null"`
 	Name        string    `gorm:"not null"`
 	Description *string
-	Hours       decimal.Decimal `gorm:"not null"`
+	Hours       decimal.Decimal `gorm:"not null;type:numeric"`
 	Status      string          `gorm:"not null"`
 	CustomHours bool            `gorm:"not null"`
 }

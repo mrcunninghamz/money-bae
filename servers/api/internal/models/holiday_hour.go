@@ -13,5 +13,5 @@ type HolidayHour struct {
 	Pto   Pto             `gorm:"foreignKey:PtoID"`
 	Date  time.Time       `gorm:"not null"`
 	Name  string          `gorm:"not null"`
-	Hours decimal.Decimal `gorm:"not null"`
+	Hours decimal.Decimal `gorm:"not null;type:numeric"`
 }
